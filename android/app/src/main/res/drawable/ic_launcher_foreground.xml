@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- UChat launcher glyph: a chat bubble with a terminal prompt inside. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Terminal window / chat bubble -->
+    <path
+        android:fillColor="#E5484D"
+        android:pathData="M30,34 h48 a6,6 0 0 1 6,6 v28 a6,6 0 0 1 -6,6 h-30 l-10,10 v-10 h-8 a6,6 0 0 1 -6,-6 v-28 a6,6 0 0 1 6,-6 z" />
+
+    <!-- Prompt > -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,44 l8,7 -8,7 0,-4.6 4.6,-2.4 -4.6,-2.4 z" />
+
+    <!-- Cursor _ -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,54 h16 v4.6 h-16 z" />
+</vector>

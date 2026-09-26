@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">UChat</string>
+    <string name="app_tagline">Your mobile Ubuntu development environment</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_projects">Projects</string>
+    <string name="nav_terminal">Terminal</string>
+    <string name="nav_files">Files</string>
+    <string name="nav_more">More</string>
+
+    <!-- Common -->
+    <string name="action_retry">Retry</string>
+    <string name="action_copy_error">Copy error</string>
+    <string name="action_view_logs">View logs</string>
+    <string name="action_close">Close</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_confirm">Confirm</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_rename">Rename</string>
+    <string name="action_open">Open</string>
+    <string name="action_stop">Stop</string>
+    <string name="action_kill">Kill</string>
+    <string name="action_restart">Restart</string>
+    <string name="action_install">Install</string>
+    <string name="action_update">Update</string>
+    <string name="action_launch">Launch</string>
+    <string name="action_configure">Configure</string>
+    <string name="action_import">Import</string>
+    <string name="action_export">Export</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_resume">Resume</string>
+    <string name="action_back">Back</string>
+    <string name="action_done">Done</string>
+    <string name="action_copied">Copied</string>
+    <string name="error_title">Something went wrong</string>
+
+    <!-- Home -->
+    <string name="home_title">Dashboard</string>
+    <string name="home_status_ubuntu">Ubuntu 24.04 LTS</string>
+    <string name="home_status_running">Running</string>
+    <string name="home_status_stopped">Stopped</string>
+    <string name="home_status_not_installed">Not installed</string>
+    <string name="home_storage">Storage</string>
+    <string name="home_processes">Background processes</string>
+    <string name="home_projects">Projects</string>
+    <string name="home_network">Network</string>
+    <string name="home_network_connected">Connected</string>
+    <string name="home_network_offline">Offline</string>
+    <string name="home_quick_actions">Quick actions</string>
+    <string name="home_open_terminal">Open Terminal</string>
+    <string name="home_opencode">OpenCode</string>
+    <string name="home_claude">Claude</string>
+    <string name="home_free_of">%1$s free of %2$s</string>
+
+    <!-- Install wizard -->
+    <string name="install_title">Welcome to UChat</string>
+    <string name="install_subtitle">Install a real Ubuntu 24.04 LTS environment on this device. No root required.</string>
+    <string name="install_detected_arch">Detected architecture: %1$s</string>
+    <string name="install_available_storage">Available storage: %1$s</string>
+    <string name="install_required_storage">Required: %1$s (download %2$s, extracted %3$s)</string>
+    <string name="install_insufficient_storage">Not enough storage. Free at least %1$s more.</string>
+    <string name="install_start">Install Ubuntu</string>
+    <string name="install_import_existing">Import existing environment</string>
+    <string name="install_restore_backup">Restore backup</string>
+    <string name="install_step_download">Download Ubuntu 24.04 LTS rootfs</string>
+    <string name="install_step_verify">Verify checksum (SHA-256)</string>
+    <string name="install_step_extract">Extract root filesystem</string>
+    <string name="install_step_init">Initialize Ubuntu</string>
+    <string name="install_step_apt">Install essential packages</string>
+    <string name="install_step_runtimes">Install development runtimes (Node.js, Python)</string>
+    <string name="install_step_opencode">Install OpenCode CLI</string>
+    <string name="install_step_claude">Install Claude Code CLI</string>
+    <string name="install_step_health">Run system health check</string>
+    <string name="install_step_ready">Ready</string>
+    <string name="install_downloading">Downloading %1$s</string>
+    <string name="install_verifying">Verifying %1$s…</string>
+    <string name="install_extracting">Extracting %1$s</string>
+    <string name="install_size_hint">File size: %1$s · SHA-256 verified before install</string>
+    <string name="install_eta">ETA: %1$s</string>
+    <string name="install_speed">%1$s/s</string>
+    <string name="install_progress_bytes">%1$s / %2$s</string>
+    <string name="install_paused">Paused</string>
+    <string name="install_failed">Installation failed</string>
+    <string name="install_completed">Ubuntu is ready 🎉</string>
+    <string name="install_ready_message">Your Ubuntu 24.04 LTS environment is installed and healthy.</string>
+    <string name="install_reinstall">Repair / reinstall</string>
+    <string name="install_resume_hint">Installation can be paused and resumed at any time.</string>
+    <string name="install_step_status_pending">Pending</string>
+    <string name="install_step_status_running">Running</string>
+    <string name="install_step_status_done">Done</string>
+    <string name="install_step_status_failed">Failed</string>
+    <string name="install_checksum_mismatch">Checksum mismatch: the download is corrupted. Retry the download.</string>
+    <string name="install_unsupported_arch">Ubuntu 24.04 does not ship a rootfs for this architecture (%1$s). Use an arm64, armv7 or x86_64 device.</string>
+
+    <!-- Terminal -->
+    <string name="terminal_new_session">New session</string>
+    <string name="terminal_session_ubuntu">Ubuntu</string>
+    <string name="terminal_session_opencode">OpenCode</string>
+    <string name="terminal_session_claude">Claude</string>
+    <string name="terminal_paste">Paste</string>
+    <string name="terminal_copy">Copy</string>
+    <string name="terminal_search">Search</string>
+    <string name="terminal_font_size">Font size</string>
+    <string name="terminal_kill_session">Kill session</string>
+    <string name="terminal_not_installed">Ubuntu is not installed yet. Install it from Home first.</string>
+    <string name="terminal_key_esc">ESC</string>
+    <string name="terminal_key_tab">TAB</string>
+    <string name="terminal_key_ctrl">CTRL</string>
+    <string name="terminal_key_alt">ALT</string>
+    <string name="terminal_key_up">↑</string>
+    <string name="terminal_key_down">↓</string>
+    <string name="terminal_key_left">←</string>
+    <string name="terminal_key_right">→</string>
+
+    <!-- Projects -->
+    <string name="projects_title">Projects</string>
+    <string name="projects_empty">No projects yet. Create or import one.</string>
+    <string name="projects_new">New project</string>
+    <string name="projects_name">Project name</string>
+    <string name="projects_create">Create</string>
+    <string name="projects_last_opened">Last opened: %1$s</string>
+    <string name="projects_open_terminal">Terminal</string>
+    <string name="projects_open_opencode">OpenCode</string>
+    <string name="projects_open_claude">Claude</string>
+    <string name="projects_files">Files</string>
+    <string name="projects_git">Git</string>
+    <string name="projects_export">Export</string>
+    <string name="projects_delete_confirm">Delete project "%1$s"? Files on disk are kept.</string>
+    <string name="projects_invalid_name">Invalid name. Use letters, numbers, dash or underscore.</string>
+
+    <!-- Files -->
+    <string name="files_title">Files</string>
+    <string name="files_empty_dir">Empty directory</string>
+    <string name="files_new_file">New file</string>
+    <string name="files_new_folder">New folder</string>
+    <string name="files_up">Up</string>
+    <string name="files_hidden">Hidden files</string>
+    <string name="files_compress">Compress to tar.gz</string>
+    <string name="files_extract">Extract here</string>
+    <string name="files_open_terminal_here">Open terminal here</string>
+    <string name="files_copy_path">Copy path</string>
+    <string name="files_delete_confirm">Delete %1$s?</string>
+    <string name="files_import_too_large">File is too large.</string>
+    <string name="files_parent_dir">Workspace</string>
+
+    <!-- Processes -->
+    <string name="processes_title">Processes</string>
+    <string name="processes_empty">No background processes.</string>
+    <string name="processes_running">Running</string>
+    <string name="processes_exited">Exited (%1$d)</string>
+    <string name="processes_runtime">Runtime: %1$s</string>
+    <string name="processes_view_logs">View logs</string>
+    <string name="processes_stop_all">Stop all</string>
+    <string name="processes_service_notification">%1$d background process(es)</string>
+
+    <!-- Tools -->
+    <string name="tools_title">AI Tools</string>
+    <string name="tools_category">Category: %1$s</string>
+    <string name="tools_version">Version: %1$s</string>
+    <string name="tools_status_installed">Installed</string>
+    <string name="tools_status_missing">Not installed</string>
+    <string name="tools_checking">Checking…</string>
+    <string name="tools_env_title">Environment configuration</string>
+    <string name="tools_env_base_url">Base URL</string>
+    <string name="tools_env_api_key">API key</string>
+    <string name="tools_env_model">Model</string>
+    <string name="tools_env_provider">Provider</string>
+    <string name="tools_env_hint_secret">Stored encrypted with Android Keystore. Never logged or exported.</string>
+
+    <!-- Servers -->
+    <string name="servers_title">Local servers</string>
+    <string name="servers_empty">No listening ports detected.</string>
+    <string name="servers_open_browser">Open in browser</string>
+    <string name="servers_copy_url">Copy URL</string>
+    <string name="servers_port">Port %1$d</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_general">General</string>
+    <string name="settings_terminal">Terminal</string>
+    <string name="settings_font_size">Font size (12–24)</string>
+    <string name="settings_background">Background</string>
+    <string name="settings_restore_after_reboot">Restore background sessions after reboot</string>
+    <string name="settings_persistent_notification">Persistent notification</string>
+    <string name="settings_storage">Storage</string>
+    <string name="settings_warn_threshold">Warn when free space below (GB)</string>
+    <string name="settings_security">Security</string>
+    <string name="settings_secrets">Manage secrets</string>
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_reset">Reset UChat</string>
+    <string name="settings_reset_confirm">This removes Ubuntu, caches and settings. Projects on disk are kept. Continue?</string>
+    <string name="settings_cleanup">Clean caches</string>
+    <string name="settings_about">About</string>
+
+    <!-- Diagnostics -->
+    <string name="diagnostics_title">Diagnostics</string>
+    <string name="diagnostics_run">Run health check</string>
+    <string name="diagnostics_copy">Copy diagnostics</string>
+    <string name="diagnostics_export">Export diagnostics</string>
+    <string name="diagnostics_android_version">Android version</string>
+    <string name="diagnostics_device">Device</string>
+    <string name="diagnostics_cpu_abi">CPU ABI</string>
+    <string name="diagnostics_ram">RAM</string>
+    <string name="diagnostics_storage">Storage</string>
+    <string name="diagnostics_uchat_version">UChat version</string>
+    <string name="diagnostics_no_secrets">Diagnostics never include secrets.</string>
+
+    <!-- Storage -->
+    <string name="storage_title">Storage</string>
+    <string name="storage_ubuntu">Ubuntu</string>
+    <string name="storage_workspace">Workspace</string>
+    <string name="storage_downloads">Downloads</string>
+    <string name="storage_archives">Archives</string>
+    <string name="storage_logs">Logs</string>
+    <string name="storage_caches">Caches</string>
+    <string name="storage_free">Free</string>
+    <string name="storage_low_warning">Low storage: %1$s free. UChat may fail to download or extract files.</string>
+
+    <!-- Updates -->
+    <string name="update_check">Check for updates</string>
+    <string name="update_current">Current version: %1$s</string>
+    <string name="update_latest">Latest version: %1$s</string>
+    <string name="update_available">An update is available</string>
+    <string name="update_up_to_date">UChat is up to date</string>
+    <string name="update_download">Download from GitHub Releases</string>
+</resources>

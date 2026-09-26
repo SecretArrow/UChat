@@ -1,0 +1,209 @@
+name: Release
+
+# Automatic releases (spec #52, #53, #54):
+#   - push a tag `v1.2.3` -> versionName=1.2.3, versionCode=commit count
+#   - builds ABI-split APKs (+ universal) entirely in GitHub Actions
+#   - signs with secrets when configured, else an ephemeral CI key
+#   - generates SHA256SUMS.txt and release notes, publishes the release
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to release (e.g. v1.0.0)"
+        required: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & sign release APKs
+    runs-on: ubuntu-latest
+    outputs:
+      version_name: ${{ steps.version.outputs.version_name }}
+      tag_name: ${{ steps.version.outputs.tag_name }}
+      signed_with: ${{ steps.signing-meta.outputs.signed_with }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version from tag
+        id: version
+        run: |
+          TAG_INPUT="${{ github.event.inputs.tag || '' }}"
+          RAW_TAG="${GITHUB_REF_NAME}"
+          if [ -n "$TAG_INPUT" ]; then RAW_TAG="$TAG_INPUT"; fi
+          TAG_NAME="$RAW_TAG"
+          case "$TAG_NAME" in
+            v*) TAG_NAME="$TAG_NAME" ;;
+            *) TAG_NAME="v$TAG_NAME" ;;
+          esac
+          VERSION_NAME="${RAW_TAG#v}"
+          VERSION_CODE=$(git rev-list --count HEAD)
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          echo "Building UChat $VERSION_NAME (code $VERSION_CODE) as $TAG_NAME"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Accept Android SDK licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Install SDK components
+        run: |
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
+
+      - name: Sync ubuntu assets
+        run: bash scripts/sync-ubuntu-assets.sh
+
+      - name: Configure signing (secrets or ephemeral CI key)
+        id: signing-meta
+        env:
+          UCHAT_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          UCHAT_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          UCHAT_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          UCHAT_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          mkdir -p signing
+          if [ -n "$UCHAT_KEYSTORE_B64" ]; then
+            echo "$UCHAT_KEYSTORE_B64" | base64 -d > signing/uchat-release.jks
+            echo "UCHAT_KEYSTORE_PATH=$GITHUB_WORKSPACE/signing/uchat-release.jks" >> "$GITHUB_ENV"
+            echo "UCHAT_KEYSTORE_PASSWORD=$UCHAT_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "UCHAT_KEY_ALIAS=$UCHAT_KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "UCHAT_KEY_PASSWORD=$UCHAT_KEY_PASSWORD" >> "$GITHUB_ENV"
+            echo "signed_with=release secrets" >> "$GITHUB_OUTPUT"
+          else
+            echo "No signing secrets configured — generating an EPHEMERAL CI keystore."
+            keytool -genkeypair -v \
+              -keystore signing/uchat-ephemeral.jks \
+              -storepass uchat-ephemeral -keypass uchat-ephemeral \
+              -alias uchat -keyalg RSA -keysize 2048 -validity 90 \
+              -dname "CN=UChat CI, OU=CI, O=UChat, L=Cloud, C=ID"
+            echo "UCHAT_KEYSTORE_PATH=$GITHUB_WORKSPACE/signing/uchat-ephemeral.jks" >> "$GITHUB_ENV"
+            echo "UCHAT_KEYSTORE_PASSWORD=uchat-ephemeral" >> "$GITHUB_ENV"
+            echo "UCHAT_KEY_ALIAS=uchat" >> "$GITHUB_ENV"
+            echo "UCHAT_KEY_PASSWORD=uchat-ephemeral" >> "$GITHUB_ENV"
+            echo "signed_with=ephemeral CI key" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build signed release APKs
+        working-directory: android
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+        run: ./gradlew assembleRelease -PversionName="$VERSION_NAME" -PversionCode="$VERSION_CODE" --stacktrace
+
+      - name: Rename artifacts to UChat-vX.Y.Z-<abi>.apk
+        run: |
+          VERSION="${{ steps.version.outputs.version_name }}"
+          mkdir -p dist
+          for apk in android/app/build/outputs/apk/release/*.apk; do
+            base=$(basename "$apk")
+            abi="universal"
+            case "$base" in
+              *arm64-v8a*) abi="arm64-v8a" ;;
+              *armeabi-v7a*) abi="armeabi-v7a" ;;
+              *x86_64*) abi="x86_64" ;;
+              *x86*) abi="x86" ;;
+            esac
+            cp "$apk" "dist/UChat-v${VERSION}-${abi}.apk"
+          done
+          ls -la dist/
+
+      - name: Generate SHA256SUMS.txt
+        working-directory: dist
+        run: |
+          sha256sum UChat-*.apk > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Upload mapping files
+        uses: actions/upload-artifact@v4
+        with:
+          name: mapping-${{ steps.version.outputs.version_name }}
+          path: android/app/build/outputs/mapping/release/mapping.txt
+          retention-days: 90
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apks-${{ steps.version.outputs.version_name }}
+          path: dist/
+          retention-days: 14
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-apks-*
+          merge-multiple: true
+          path: dist
+
+      - name: Prepare release notes
+        env:
+          SIGNED_WITH: ${{ needs.build.outputs.signed_with }}
+          VERSION: ${{ needs.build.outputs.version_name }}
+        run: |
+          cat > release-notes.md <<'HEADER'
+          ## Instalasi
+
+          1. Pilih APK sesuai arsitektur perangkat Anda (paling umum: **arm64-v8a**).
+          2. Unduh, buka file APK, izinkan instalasi dari sumber tidak dikenal bila diminta.
+          3. Buka UChat dan jalankan wizard instalasi Ubuntu 24.04 LTS.
+
+          Ukuran setiap APK tercantum di tabel aset di bawah. Semua file diverifikasi
+          dengan SHA-256 (`SHA256SUMS.txt`).
+
+          HEADER
+          if [ -f CHANGELOG.md ]; then
+            section=$(awk -v ver="$VERSION" 'BEGIN{p=0} /^## /{ if (p==1) exit; if ($0 ~ ver) p=1 } p' CHANGELOG.md || true)
+            if [ -n "$section" ]; then
+              echo "$section" >> release-notes.md
+            fi
+          fi
+          {
+            echo ""
+            echo "---"
+            echo "Signing: ${SIGNED_WITH:-see build logs}"
+            echo "Ubuntu rootfs & proot: diunduh + diverifikasi SHA-256 di dalam aplikasi saat instalasi."
+          } >> release-notes.md
+          cat release-notes.md
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ needs.build.outputs.tag_name }}
+          PRERELEASE: ${{ startsWith(needs.build.outputs.tag_name, 'v0-') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') || contains(github.ref_name, 'nightly') || startsWith(needs.build.outputs.tag_name, 'nightly') }}
+        run: |
+          args=()
+          if [ "$PRERELEASE" = "true" ]; then
+            args+=(--prerelease)
+          fi
+          gh release create "$TAG_NAME" \
+            --title "UChat $TAG_NAME" \
+            --notes-file release-notes.md \
+            "${args[@]}" \
+            dist/*

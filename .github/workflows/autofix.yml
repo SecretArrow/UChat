@@ -1,0 +1,66 @@
+name: Auto Fix
+
+# Auto-fix formatting (ktfmt via Spotless) and safe lint quickfixes, then
+# commit the result. Runs on every push to main. Commits carry [skip ci]
+# so workflows never loop.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: autofix-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  autofix:
+    name: Spotless apply + lint fix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Accept Android SDK licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Install SDK components
+        run: |
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
+
+      - name: Sync ubuntu assets
+        run: bash scripts/sync-ubuntu-assets.sh
+
+      - name: Spotless apply
+        working-directory: android
+        run: ./gradlew spotlessApply --stacktrace || true
+
+      - name: Detect changes
+        id: diff
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push fixes
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name "uchat-autofix"
+          git config user.email "uchat-autofix@users.noreply.github.com"
+          git commit -m "chore: auto-fix formatting via Spotless [skip ci]"
+          git push origin HEAD:main

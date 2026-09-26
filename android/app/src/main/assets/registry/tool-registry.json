@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "tools": [
+    {
+      "id": "opencode",
+      "name": "OpenCode",
+      "category": "AI Coding",
+      "executable": "opencode",
+      "verifyCommand": "opencode --version",
+      "installScript": "install-opencode.sh",
+      "description": "AI coding agent for the terminal. Works with OpenAI-compatible, Anthropic-compatible, OpenRouter and self-hosted endpoints.",
+      "docsUrl": "https://opencode.ai/docs",
+      "supportsEnv": true
+    },
+    {
+      "id": "claude",
+      "name": "Claude Code",
+      "category": "AI Coding",
+      "executable": "claude",
+      "verifyCommand": "claude --version",
+      "installScript": "install-claude.sh",
+      "description": "Anthropic's agentic coding tool, installed as a global npm package inside Ubuntu.",
+      "docsUrl": "https://docs.anthropic.com/en/docs/claude-code",
+      "supportsEnv": true
+    },
+    {
+      "id": "node",
+      "name": "Node.js",
+      "category": "Runtime",
+      "executable": "node",
+      "verifyCommand": "node --version",
+      "installScript": "install-node.sh",
+      "description": "JavaScript runtime (Node 22 LTS) with npm and pnpm.",
+      "docsUrl": "https://nodejs.org",
+      "supportsEnv": false
+    },
+    {
+      "id": "bun",
+      "name": "Bun",
+      "category": "Runtime",
+      "executable": "bun",
+      "verifyCommand": "bun --version",
+      "installScript": "install-bun.sh",
+      "description": "Fast all-in-one JavaScript runtime, bundler, test runner and package manager.",
+      "docsUrl": "https://bun.sh/docs",
+      "supportsEnv": false
+    },
+    {
+      "id": "python",
+      "name": "Python 3",
+      "category": "Runtime",
+      "executable": "python3",
+      "verifyCommand": "python3 --version",
+      "installScript": "install-python.sh",
+      "description": "Python 3 with pip and venv, installed via apt.",
+      "docsUrl": "https://docs.python.org/3/",
+      "supportsEnv": false
+    },
+    {
+      "id": "git",
+      "name": "Git",
+      "category": "Dev Tools",
+      "executable": "git",
+      "verifyCommand": "git --version",
+      "installScript": null,
+      "description": "Version control. Installed with the essential package set.",
+      "docsUrl": "https://git-scm.com/doc",
+      "supportsEnv": false
+    }
+  ]
+}

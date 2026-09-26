@@ -1,0 +1,77 @@
+name: Nightly
+
+# Nightly pre-release (spec #55): nightly-YYYY-MM-DD tags built and
+# published automatically. Older nightlies are pruned (keep 7).
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  nightly:
+    name: Build & publish nightly
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Skip if no new commits since last nightly
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LAST=$(gh release list --limit 20 --json tagName --jq '.[].tagName' | grep '^nightly-' | head -1 || true)
+          if [ -n "$LAST" ]; then
+            LAST_DATE="${LAST#nightly-}"
+            NEW=$(git rev-list --since="$LAST_DATE" --count HEAD || echo 0)
+            if [ "${NEW:-0}" -eq 0 ]; then
+              echo "No new commits since $LAST — skipping."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Tag nightly
+        if: steps.check.outputs.skip != 'true'
+        id: tag
+        run: |
+          VERSION="nightly-$(date -u +%Y-%m-%d)"
+          git config user.name "uchat-nightly"
+          git config user.email "uchat-nightly@users.noreply.github.com"
+          git tag -f "$VERSION"
+          git push origin "refs/tags/$VERSION" --force
+          echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger release workflow
+        if: steps.check.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run release.yml --ref "${{ steps.tag.outputs.tag }}" \
+            -f tag="${{ steps.tag.outputs.tag }}" || {
+              # Fallback: build inline if workflow_dispatch is unavailable for tags
+              echo "release workflow dispatch failed; nightly tag remains for manual run"
+            }
+
+      - name: Prune old nightlies (keep 7)
+        if: steps.check.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COUNT=$(gh release list --limit 100 --json tagName,isPrerelease --jq '[.[] | select(.tagName | startswith("nightly-"))] | length')
+          if [ "$COUNT" -gt 7 ]; then
+            gh release list --limit 100 --json tagName,isPrerelease \
+              --jq '[.[] | select(.tagName | startswith("nightly-"))] | sort_by(.tagName) | .[:'"$((COUNT-7))"'] | .[].tagName' \
+              | while read -r old; do
+                  gh release delete "$old" --cleanup-tag --yes || true
+                done
+          fi

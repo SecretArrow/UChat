@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="ubuntu/" />
+        <exclude domain="file" path="secrets/" />
+        <exclude domain="file" path="runtime/" />
+        <exclude domain="file" path="downloads/" />
+        <exclude domain="file" path="archives/" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="ubuntu/" />
+        <exclude domain="file" path="secrets/" />
+        <exclude domain="file" path="runtime/" />
+        <exclude domain="file" path="downloads/" />
+        <exclude domain="file" path="archives/" />
+    </device-transfer>
+</data-extraction-rules>

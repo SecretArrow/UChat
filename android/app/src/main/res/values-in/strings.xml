@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">UChat</string>
+    <string name="app_tagline">Lingkungan pengembangan Ubuntu di ponsel Anda</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Beranda</string>
+    <string name="nav_projects">Proyek</string>
+    <string name="nav_terminal">Terminal</string>
+    <string name="nav_files">Berkas</string>
+    <string name="nav_more">Lainnya</string>
+
+    <!-- Common -->
+    <string name="action_retry">Coba lagi</string>
+    <string name="action_copy_error">Salin error</string>
+    <string name="action_view_logs">Lihat log</string>
+    <string name="action_close">Tutup</string>
+    <string name="action_cancel">Batal</string>
+    <string name="action_confirm">Konfirmasi</string>
+    <string name="action_delete">Hapus</string>
+    <string name="action_rename">Ganti nama</string>
+    <string name="action_open">Buka</string>
+    <string name="action_stop">Hentikan</string>
+    <string name="action_kill">Paksa mati</string>
+    <string name="action_restart">Mulai ulang</string>
+    <string name="action_install">Instal</string>
+    <string name="action_update">Perbarui</string>
+    <string name="action_launch">Jalankan</string>
+    <string name="action_configure">Konfigurasi</string>
+    <string name="action_import">Impor</string>
+    <string name="action_export">Ekspor</string>
+    <string name="action_pause">Jeda</string>
+    <string name="action_resume">Lanjutkan</string>
+    <string name="action_back">Kembali</string>
+    <string name="action_done">Selesai</string>
+    <string name="action_copied">Tersalin</string>
+    <string name="error_title">Terjadi kesalahan</string>
+
+    <!-- Home -->
+    <string name="home_title">Dasbor</string>
+    <string name="home_status_ubuntu">Ubuntu 24.04 LTS</string>
+    <string name="home_status_running">Berjalan</string>
+    <string name="home_status_stopped">Berhenti</string>
+    <string name="home_status_not_installed">Belum terpasang</string>
+    <string name="home_storage">Penyimpanan</string>
+    <string name="home_processes">Proses latar belakang</string>
+    <string name="home_projects">Proyek</string>
+    <string name="home_network">Jaringan</string>
+    <string name="home_network_connected">Terhubung</string>
+    <string name="home_network_offline">Luring</string>
+    <string name="home_quick_actions">Aksi cepat</string>
+    <string name="home_open_terminal">Buka Terminal</string>
+    <string name="home_opencode">OpenCode</string>
+    <string name="home_claude">Claude</string>
+    <string name="home_free_of">%1$s bebas dari %2$s</string>
+
+    <!-- Install wizard -->
+    <string name="install_title">Selamat datang di UChat</string>
+    <string name="install_subtitle">Pasang lingkungan Ubuntu 24.04 LTS asli di perangkat ini. Tanpa root.</string>
+    <string name="install_detected_arch">Arsitektur terdeteksi: %1$s</string>
+    <string name="install_available_storage">Penyimpanan tersedia: %1$s</string>
+    <string name="install_required_storage">Dibutuhkan: %1$s (unduh %2$s, setelah ekstraksi %3$s)</string>
+    <string name="install_insufficient_storage">Penyimpanan tidak cukup. Kosongkan setidaknya %1$s lagi.</string>
+    <string name="install_start">Instal Ubuntu</string>
+    <string name="install_import_existing">Impor lingkungan yang sudah ada</string>
+    <string name="install_restore_backup">Pulihkan cadangan</string>
+    <string name="install_step_download">Unduh rootfs Ubuntu 24.04 LTS</string>
+    <string name="install_step_verify">Verifikasi checksum (SHA-256)</string>
+    <string name="install_step_extract">Ekstrak root filesystem</string>
+    <string name="install_step_init">Inisialisasi Ubuntu</string>
+    <string name="install_step_apt">Pasang paket esensial</string>
+    <string name="install_step_runtimes">Pasang runtime pengembangan (Node.js, Python)</string>
+    <string name="install_step_opencode">Pasang OpenCode CLI</string>
+    <string name="install_step_claude">Pasang Claude Code CLI</string>
+    <string name="install_step_health">Jalankan pemeriksaan kesehatan sistem</string>
+    <string name="install_step_ready">Siap</string>
+    <string name="install_downloading">Mengunduh %1$s</string>
+    <string name="install_verifying">Memverifikasi %1$s…</string>
+    <string name="install_extracting">Mengekstrak %1$s</string>
+    <string name="install_size_hint">Ukuran file: %1$s · diverifikasi SHA-256 sebelum dipasang</string>
+    <string name="install_eta">Perkiraan selesai: %1$s</string>
+    <string name="install_speed">%1$s/dtk</string>
+    <string name="install_progress_bytes">%1$s / %2$s</string>
+    <string name="install_paused">Dijeda</string>
+    <string name="install_failed">Instalasi gagal</string>
+    <string name="install_completed">Ubuntu siap digunakan 🎉</string>
+    <string name="install_ready_message">Lingkungan Ubuntu 24.04 LTS Anda telah terpasang dan sehat.</string>
+    <string name="install_reinstall">Perbaiki / pasang ulang</string>
+    <string name="install_resume_hint">Instalasi dapat dijeda dan dilanjutkan kapan saja.</string>
+    <string name="install_step_status_pending">Menunggu</string>
+    <string name="install_step_status_running">Berjalan</string>
+    <string name="install_step_status_done">Selesai</string>
+    <string name="install_step_status_failed">Gagal</string>
+    <string name="install_checksum_mismatch">Checksum tidak cocok: unduhan korup. Ulangi pengunduhan.</string>
+    <string name="install_unsupported_arch">Ubuntu 24.04 tidak menyediakan rootfs untuk arsitektur ini (%1$s). Gunakan perangkat arm64, armv7, atau x86_64.</string>
+
+    <!-- Terminal -->
+    <string name="terminal_new_session">Sesi baru</string>
+    <string name="terminal_session_ubuntu">Ubuntu</string>
+    <string name="terminal_session_opencode">OpenCode</string>
+    <string name="terminal_session_claude">Claude</string>
+    <string name="terminal_paste">Tempel</string>
+    <string name="terminal_copy">Salin</string>
+    <string name="terminal_search">Cari</string>
+    <string name="terminal_font_size">Ukuran font</string>
+    <string name="terminal_kill_session">Akhiri sesi</string>
+    <string name="terminal_not_installed">Ubuntu belum terpasang. Instal dulu dari Beranda.</string>
+    <string name="terminal_key_esc">ESC</string>
+    <string name="terminal_key_tab">TAB</string>
+    <string name="terminal_key_ctrl">CTRL</string>
+    <string name="terminal_key_alt">ALT</string>
+    <string name="terminal_key_up">↑</string>
+    <string name="terminal_key_down">↓</string>
+    <string name="terminal_key_left">←</string>
+    <string name="terminal_key_right">→</string>
+
+    <!-- Projects -->
+    <string name="projects_title">Proyek</string>
+    <string name="projects_empty">Belum ada proyek. Buat atau impor satu.</string>
+    <string name="projects_new">Proyek baru</string>
+    <string name="projects_name">Nama proyek</string>
+    <string name="projects_create">Buat</string>
+    <string name="projects_last_opened">Terakhir dibuka: %1$s</string>
+    <string name="projects_open_terminal">Terminal</string>
+    <string name="projects_open_opencode">OpenCode</string>
+    <string name="projects_open_claude">Claude</string>
+    <string name="projects_files">Berkas</string>
+    <string name="projects_git">Git</string>
+    <string name="projects_export">Ekspor</string>
+    <string name="projects_delete_confirm">Hapus proyek "%1$s"? Berkas di disk tetap disimpan.</string>
+    <string name="projects_invalid_name">Nama tidak valid. Gunakan huruf, angka, tanda hubung, atau garis bawah.</string>
+
+    <!-- Files -->
+    <string name="files_title">Berkas</string>
+    <string name="files_empty_dir">Direktori kosong</string>
+    <string name="files_new_file">Berkas baru</string>
+    <string name="files_new_folder">Folder baru</string>
+    <string name="files_up">Naik</string>
+    <string name="files_hidden">Berkas tersembunyi</string>
+    <string name="files_compress">Kompres ke tar.gz</string>
+    <string name="files_extract">Ekstrak di sini</string>
+    <string name="files_open_terminal_here">Buka terminal di sini</string>
+    <string name="files_copy_path">Salin path</string>
+    <string name="files_delete_confirm">Hapus %1$s?</string>
+    <string name="files_import_too_large">Berkas terlalu besar.</string>
+    <string name="files_parent_dir">Workspace</string>
+
+    <!-- Processes -->
+    <string name="processes_title">Proses</string>
+    <string name="processes_empty">Tidak ada proses latar belakang.</string>
+    <string name="processes_running">Berjalan</string>
+    <string name="processes_exited">Selesai (%1$d)</string>
+    <string name="processes_runtime">Durasi: %1$s</string>
+    <string name="processes_view_logs">Lihat log</string>
+    <string name="processes_stop_all">Hentikan semua</string>
+    <string name="processes_service_notification">%1$d proses latar belakang</string>
+
+    <!-- Tools -->
+    <string name="tools_title">AI Tools</string>
+    <string name="tools_category">Kategori: %1$s</string>
+    <string name="tools_version">Versi: %1$s</string>
+    <string name="tools_status_installed">Terpasang</string>
+    <string name="tools_status_missing">Belum terpasang</string>
+    <string name="tools_checking">Memeriksa…</string>
+    <string name="tools_env_title">Konfigurasi lingkungan</string>
+    <string name="tools_env_base_url">Base URL</string>
+    <string name="tools_env_api_key">API key</string>
+    <string name="tools_env_model">Model</string>
+    <string name="tools_env_provider">Provider</string>
+    <string name="tools_env_hint_secret">Disimpan terenkripsi dengan Android Keystore. Tidak pernah dicatat atau diekspor.</string>
+
+    <!-- Servers -->
+    <string name="servers_title">Server lokal</string>
+    <string name="servers_empty">Tidak ada port yang mendengarkan.</string>
+    <string name="servers_open_browser">Buka di browser</string>
+    <string name="servers_copy_url">Salin URL</string>
+    <string name="servers_port">Port %1$d</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Pengaturan</string>
+    <string name="settings_general">Umum</string>
+    <string name="settings_terminal">Terminal</string>
+    <string name="settings_font_size">Ukuran font (12–24)</string>
+    <string name="settings_background">Latar belakang</string>
+    <string name="settings_restore_after_reboot">Pulihkan sesi latar belakang setelah reboot</string>
+    <string name="settings_persistent_notification">Notifikasi persisten</string>
+    <string name="settings_storage">Penyimpanan</string>
+    <string name="settings_warn_threshold">Peringatkan jika ruang bebas di bawah (GB)</string>
+    <string name="settings_security">Keamanan</string>
+    <string name="settings_secrets">Kelola rahasia</string>
+    <string name="settings_notifications">Notifikasi</string>
+    <string name="settings_reset">Reset UChat</string>
+    <string name="settings_reset_confirm">Ini menghapus Ubuntu, cache, dan pengaturan. Proyek di disk tetap disimpan. Lanjutkan?</string>
+    <string name="settings_cleanup">Bersihkan cache</string>
+    <string name="settings_about">Tentang</string>
+
+    <!-- Diagnostics -->
+    <string name="diagnostics_title">Diagnostik</string>
+    <string name="diagnostics_run">Jalankan pemeriksaan kesehatan</string>
+    <string name="diagnostics_copy">Salin diagnostik</string>
+    <string name="diagnostics_export">Ekspor diagnostik</string>
+    <string name="diagnostics_android_version">Versi Android</string>
+    <string name="diagnostics_device">Perangkat</string>
+    <string name="diagnostics_cpu_abi">ABI CPU</string>
+    <string name="diagnostics_ram">RAM</string>
+    <string name="diagnostics_storage">Penyimpanan</string>
+    <string name="diagnostics_uchat_version">Versi UChat</string>
+    <string name="diagnostics_no_secrets">Diagnostik tidak pernah menyertakan rahasia.</string>
+
+    <!-- Storage -->
+    <string name="storage_title">Penyimpanan</string>
+    <string name="storage_ubuntu">Ubuntu</string>
+    <string name="storage_workspace">Workspace</string>
+    <string name="storage_downloads">Unduhan</string>
+    <string name="storage_archives">Arsip</string>
+    <string name="storage_logs">Log</string>
+    <string name="storage_caches">Cache</string>
+    <string name="storage_free">Bebas</string>
+    <string name="storage_low_warning">Penyimpanan rendah: %1$s bebas. UChat mungkin gagal mengunduh atau mengekstrak berkas.</string>
+
+    <!-- Updates -->
+    <string name="update_check">Periksa pembaruan</string>
+    <string name="update_current">Versi saat ini: %1$s</string>
+    <string name="update_latest">Versi terbaru: %1$s</string>
+    <string name="update_available">Pembaruan tersedia</string>
+    <string name="update_up_to_date">UChat sudah versi terbaru</string>
+    <string name="update_download">Unduh dari GitHub Releases</string>
+</resources>
