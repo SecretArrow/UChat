@@ -3,6 +3,7 @@ name: Security
 # Security CI (spec #56): secret scanning, vulnerability scanning and
 # dependency checks. Fails on findings so leaks never ship.
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
