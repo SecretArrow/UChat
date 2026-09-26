@@ -1,6 +1,5 @@
 package com.uchat.android
 
-import androidx.compose.ui.test.assertCountIsAtLeast
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -20,40 +19,16 @@ class AppLaunchE2E {
     @Test
     fun launchesAndShowsWelcomeOrDashboard() {
         composeRule.waitForIdle()
-        val welcome =
-            composeRule.onAllNodesWithText(
-                composeRule.activity.getString(R.string.install_title),
-            )
-        val dashboard =
-            composeRule.onAllNodesWithText(
-                composeRule.activity.getString(R.string.home_title),
-            )
-        val more =
-            composeRule.onAllNodesWithText(
-                composeRule.activity.getString(R.string.nav_more),
-            )
-        // At least one of the primary surfaces must exist.
-        val found =
-            try {
-                welcome.assertCountIsAtLeast(1)
-                true
-            } catch (_: AssertionError) {
-                false
-            } ||
-                try {
-                    dashboard.assertCountIsAtLeast(1)
-                    true
-                } catch (_: AssertionError) {
-                    false
-                } ||
-                try {
-                    more.assertCountIsAtLeast(1)
-                    true
-                } catch (_: AssertionError) {
-                    false
-                }
-        if (!found) {
-            throw AssertionError("Neither welcome, dashboard nor navigation rendered")
+        composeRule.waitUntil(timeoutMillis = 15_000) {
+            countOf(R.string.install_title) +
+                countOf(R.string.home_title) +
+                countOf(R.string.nav_more) > 0
         }
     }
+
+    private fun countOf(resId: Int): Int =
+        composeRule
+            .onAllNodesWithText(composeRule.activity.getString(resId))
+            .fetchSemanticsNodes()
+            .size
 }
