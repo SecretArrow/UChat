@@ -13,6 +13,7 @@ concurrency:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   nightly:
@@ -56,11 +57,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Fails loudly so monitoring/auto-fix can catch it (needs actions:write)
           gh workflow run release.yml --ref "${{ steps.tag.outputs.tag }}" \
-            -f tag="${{ steps.tag.outputs.tag }}" || {
-              # Fallback: build inline if workflow_dispatch is unavailable for tags
-              echo "release workflow dispatch failed; nightly tag remains for manual run"
-            }
+            -f tag="${{ steps.tag.outputs.tag }}"
 
       - name: Prune old nightlies (keep 7)
         if: steps.check.outputs.skip != 'true'

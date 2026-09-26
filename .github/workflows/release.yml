@@ -42,8 +42,9 @@ jobs:
           RAW_TAG="${GITHUB_REF_NAME}"
           if [ -n "$TAG_INPUT" ]; then RAW_TAG="$TAG_INPUT"; fi
           TAG_NAME="$RAW_TAG"
-          case "$TAG_NAME" in
-            v*) TAG_NAME="$TAG_NAME" ;;
+          case "$RAW_TAG" in
+            nightly-*) TAG_NAME="$RAW_TAG" ;; # nightly prereleases keep their own prefix
+            v*) TAG_NAME="$RAW_TAG" ;;
             *) TAG_NAME="v$TAG_NAME" ;;
           esac
           VERSION_NAME="${RAW_TAG#v}"
@@ -113,8 +114,9 @@ jobs:
         run: ./gradlew assembleRelease -PversionName="$VERSION_NAME" -PversionCode="$VERSION_CODE" --stacktrace
 
       - name: Rename artifacts to UChat-vX.Y.Z-<abi>.apk
+        env:
+          TAG_NAME: ${{ steps.version.outputs.tag_name }}
         run: |
-          VERSION="${{ steps.version.outputs.version_name }}"
           mkdir -p dist
           for apk in android/app/build/outputs/apk/release/*.apk; do
             base=$(basename "$apk")
@@ -125,7 +127,7 @@ jobs:
               *x86_64*) abi="x86_64" ;;
               *x86*) abi="x86" ;;
             esac
-            cp "$apk" "dist/UChat-v${VERSION}-${abi}.apk"
+            cp "$apk" "dist/UChat-${TAG_NAME}-${abi}.apk"
           done
           ls -la dist/
 
@@ -133,7 +135,6 @@ jobs:
         working-directory: dist
         run: |
           sha256sum UChat-*.apk > SHA256SUMS.txt
-          cat SHA256SUMS.txt
 
       - name: Upload mapping files
         uses: actions/upload-artifact@v7
