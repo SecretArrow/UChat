@@ -81,6 +81,19 @@ Key components:
   size *before* download and is checksum-verified *after* download.
 - **Terminal** (`terminal/`): JNI pty (`fork`/`execve`/`TIOCSWINSZ`) bridged to
   xterm.js in a WebView. Multiple independent sessions survive UI navigation.
+  JuiceSSH-inspired experience: dark terminal-first UI, blinking cursor,
+  10 000-line scrollback, smart auto-scroll (never yanked to the bottom while
+  reading history, quick scroll-to-bottom button instead), session tabs with a
+  bounded 256 KiB per-session replay buffer, find, bracketed-paste-aware paste
+  and 16 ms coalesced output for smooth streaming of huge logs.
+- **Extra keys** (`terminal/keys/`): 100% user-customizable toolbar — six
+  built-in layouts (Default, Linux, Developer, Git, Node.js, Custom) plus full
+  CRUD for layouts and keys: add, edit, duplicate, rename, delete, drag & drop
+  reorder, reset. Keys support text, terminal keys, modifier combos
+  (CTRL+C → `0x03`, CTRL+UP → `ESC[1;5A`), raw escape sequences (`\e[5~`) and
+  commands (`npm run dev` + Enter), long-press payloads, repeat-on-hold,
+  per-key haptics. Modifiers behave like real terminal modifiers with
+  momentary / latched / locked modes. See `docs/TERMINAL.md`.
 - **Proot layer** (`linux/Proot.kt`): argument-array command construction only
   (no shell interpolation), app-private bind mounts, fake-root (`-0`).
 - **Secrets** (`core/crypto/`): Android Keystore AES/GCM. API keys are never

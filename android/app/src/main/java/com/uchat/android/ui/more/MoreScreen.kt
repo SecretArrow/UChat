@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.uchat.android.BuildConfig
 import com.uchat.android.R
 
-/** "More" entry point: settings, diagnostics, processes, tools, servers. */
+/** "More" entry point: settings, diagnostics, processes, tools, servers, terminal. */
 @Composable
 fun MoreScreen(
     onOpenProcesses: () -> Unit,
@@ -25,6 +25,8 @@ fun MoreScreen(
     onOpenServers: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenDiagnostics: () -> Unit,
+    onOpenExtraKeys: () -> Unit,
+    onOpenTerminalSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -35,6 +37,8 @@ fun MoreScreen(
         MoreItem(stringResource(R.string.processes_title), onOpenProcesses)
         MoreItem(stringResource(R.string.tools_title), onOpenTools)
         MoreItem(stringResource(R.string.servers_title), onOpenServers)
+        MoreItem(stringResource(R.string.editor_title), onOpenExtraKeys)
+        MoreItem(stringResource(R.string.tset_title), onOpenTerminalSettings)
         MoreItem(stringResource(R.string.settings_title), onOpenSettings)
         MoreItem(stringResource(R.string.diagnostics_title), onOpenDiagnostics)
 

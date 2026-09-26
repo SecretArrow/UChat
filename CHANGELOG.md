@@ -11,6 +11,46 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 - Backup scheduler
 - Additional tool registry entries (Codex CLI, Gemini CLI, Aider)
 
+## [1.1.0] - 2026-09-26
+
+### Added
+- Modern terminal experience inspired by JuiceSSH (terminal-first, dark, monospace):
+  - Blinking cursor, high-contrast dark palette, Unicode + box-drawing glyph support
+  - 10 000-line scrollback with smooth scrolling and fast-scroll (Alt) modifier
+  - Smart auto-scroll: never force-scrolled while reading history; quick
+    scroll-to-bottom button appears only when needed
+  - Session tabs with running/exited status dots, per-session stop, bounded
+    256 KiB replay buffer so switching sessions never loses context
+  - Find in terminal (next/previous), clear, select-all copy, bracketed-paste paste
+- Fully customizable extra-key toolbar:
+  - 100% user-definable keys: text, terminal keys, modifiers, key combos,
+    raw escape sequences (`\e`, `\x1b`, `\u001b`, octal) and commands (+Enter)
+  - Long-press payloads, repeat-on-hold (arrows/PgUp/PgDn), per-key haptics
+  - Modifier keys with momentary / latched / locked behaviour + long-press hard lock
+  - xterm-compatible modifier encoding (CTRL+letter → 0x01–0x1A, CTRL+UP → `ESC[1;5A`,
+    ALT → ESC prefix, F1–F12 SS3/CSI)
+  - Drag & drop reordering, duplicate, edit, delete
+- Multiple key layouts: Default, Linux, Developer, Git, Node.js, Custom —
+  create, rename, duplicate, delete (custom only), reset, set as default
+- Dedicated Edit Extra Keys screen with layout manager
+- Terminal settings screen: font size, key height/width, toolbar position
+  (top/bottom) and visibility, haptics, key repeat, modifier mode, cursor
+  blink, scroll button
+- Terminal architecture documentation (`docs/TERMINAL.md`)
+
+### Changed
+- Terminal layers fully separated (emulator / buffer / renderer / input /
+  extra keys / editor / settings / session backend) behind a `TerminalBackend`
+  interface — an SSH backend can be added without touching the UI
+- Output coalescing (16 ms, ≤128 KiB per flush) for smooth rendering of
+  high-throughput output without flooding the JS bridge
+- Extra-key input writes directly to the pty (no JS roundtrip — low latency)
+- `PtySession` supports multiple output listeners; `ProcessManager` feeds the
+  replay cache for all sessions app-wide
+
+### Fixed
+- Terminal content no longer lost when switching between sessions or tabs
+
 ## [1.0.0] - 2026-09-26
 
 ### Added

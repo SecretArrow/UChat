@@ -225,4 +225,68 @@
     <string name="update_available">Pembaruan tersedia</string>
     <string name="update_up_to_date">UChat sudah versi terbaru</string>
     <string name="update_download">Unduh dari GitHub Releases</string>
+
+    <!-- Terminal UI -->
+    <string name="action_save">Simpan</string>
+    <string name="action_duplicate">Duplikat</string>
+    <string name="terminal_new_tab">Sesi baru</string>
+    <string name="terminal_scroll_bottom">Gulir ke bawah</string>
+    <string name="terminal_clear">Bersihkan terminal</string>
+    <string name="terminal_find">Cari di terminal</string>
+    <string name="terminal_find_hint">Cari…</string>
+    <string name="terminal_find_next">Berikutnya</string>
+    <string name="terminal_find_prev">Sebelumnya</string>
+    <string name="terminal_no_sessions">Tidak ada sesi aktif</string>
+    <string name="terminal_no_sessions_hint">Mulai sesi untuk membuka shell Ubuntu asli</string>
+    <string name="terminal_stop_session">Hentikan sesi</string>
+    <string name="terminal_editor">Edit tombol ekstra</string>
+    <string name="terminal_settings">Pengaturan terminal</string>
+    <string name="terminal_exited">selesai (%1$d)</string>
+
+    <!-- Extra keys editor -->
+    <string name="editor_title">Edit tombol ekstra</string>
+    <string name="editor_add_key">Tambah tombol</string>
+    <string name="editor_key_type">Jenis tombol</string>
+    <string name="editor_key_label">Label</string>
+    <string name="editor_key_value">Nilai / urutan tombol</string>
+    <string name="editor_long_press">Nilai tekan-lama (opsional)</string>
+    <string name="editor_haptic">Getaran (haptic)</string>
+    <string name="editor_repeat">Ulangi saat ditahan</string>
+    <string name="editor_modifiers">Modifier</string>
+    <string name="editor_no_keys">Belum ada tombol di layout ini</string>
+    <string name="editor_no_keys_hint">Ketuk “Tambah tombol” untuk membuat tombol pertama Anda</string>
+    <string name="editor_drag_hint">Tahan pegangan lalu geser untuk mengurutkan</string>
+
+    <!-- Key layouts -->
+    <string name="layouts_title">Layout tombol</string>
+    <string name="layout_switch">Ganti layout</string>
+    <string name="layout_create">Buat layout</string>
+    <string name="layout_name">Nama layout</string>
+    <string name="layout_rename">Ganti nama</string>
+    <string name="layout_duplicate">Duplikat</string>
+    <string name="layout_delete">Hapus layout</string>
+    <string name="layout_reset">Kembalikan ke tombol bawaan</string>
+    <string name="layout_reset_all">Reset semua layout</string>
+    <string name="layout_set_default">Jadikan bawaan</string>
+    <string name="layout_built_in">Bawaan</string>
+    <string name="layout_delete_blocked">Layout bawaan tidak dapat dihapus</string>
+
+    <!-- Terminal settings -->
+    <string name="tset_title">Terminal</string>
+    <string name="tset_font_size">Ukuran font terminal</string>
+    <string name="tset_key_height">Tinggi tombol</string>
+    <string name="tset_key_width">Lebar minimum tombol</string>
+    <string name="tset_toolbar_position">Posisi toolbar</string>
+    <string name="tset_position_top">Atas</string>
+    <string name="tset_position_bottom">Bawah</string>
+    <string name="tset_toolbar_visible">Tampilkan toolbar tombol ekstra</string>
+    <string name="tset_haptics">Getaran (haptic)</string>
+    <string name="tset_repeat">Ulangi tombol saat ditahan</string>
+    <string name="tset_cursor_blink">Kursor berkedip</string>
+    <string name="tset_scroll_button">Tombol cepat gulir ke bawah</string>
+    <string name="tset_modifier_mode">Perilaku modifier</string>
+    <string name="tset_mode_momentary">Sesaat</string>
+    <string name="tset_mode_latch">Terkunci sementara</string>
+    <string name="tset_mode_lock">Terkunci</string>
+    <string name="tset_mode_desc">Sesaat: hilang setelah satu tombol · Terkunci sementara: ketuk dua kali untuk mengunci · Terkunci: aktif/nonaktif</string>
 </resources>

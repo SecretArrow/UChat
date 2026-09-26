@@ -12,6 +12,9 @@ import com.uchat.android.data.repo.SecretsRepository
 import com.uchat.android.linux.ProcessManager
 import com.uchat.android.linux.exec.Shell
 import com.uchat.android.linux.install.UbuntuInstaller
+import com.uchat.android.terminal.TerminalReplayCache
+import com.uchat.android.terminal.keys.ExtraKeysStore
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -37,7 +40,17 @@ class AppContainer(context: Context) {
     val secretsRepository = SecretsRepository(appContext)
     val settingsRepository = SettingsRepository(appContext)
 
-    val processManager = ProcessManager(appScope)
+    /** Layer 2: bounded per-session output replay, fed by ProcessManager. */
+    val replayCache = TerminalReplayCache()
+
+    /** Layer 5 storage: customizable extra-key layouts. */
+    val extraKeysStore = ExtraKeysStore(File(appContext.filesDir, "terminal"))
+
+    val processManager =
+        ProcessManager(
+            appScope,
+            outputTap = { sessionId, bytes, length -> replayCache.offer(sessionId, bytes, length) }
+        )
     val installer: UbuntuInstaller = UbuntuInstaller(paths, assetRegistry, appScope)
 
     val shell: Shell by lazy { Shell(paths, abi) }

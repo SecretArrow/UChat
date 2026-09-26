@@ -61,7 +61,9 @@ private enum class Overlay {
     TOOLS,
     SERVERS,
     SETTINGS,
-    DIAGNOSTICS
+    DIAGNOSTICS,
+    EXTRA_KEYS,
+    TERMINAL_SETTINGS
 }
 
 /**
@@ -77,6 +79,7 @@ fun AppRoot(container: AppContainer) {
     val settings by container.settingsRepository.settings.collectAsState(initial = UChatSettings())
     val projects by container.projectsRepository.observeAll().collectAsState(initial = emptyList())
     val installState by container.installer.state.collectAsState()
+    val extraKeysState by container.extraKeysStore.state.collectAsState()
     val sessionsFlow = remember { MutableStateFlow<List<PtySession>>(emptyList()) }
     val sessionsState by sessionsFlow.collectAsState()
     var activeSessionId by remember { mutableStateOf<Long?>(null) }
@@ -220,15 +223,28 @@ fun AppRoot(container: AppContainer) {
                         )
                     Tab.TERMINAL ->
                         TerminalScreenView(
-                            session = activeSession,
-                            fontSize = settings.terminalFontSize,
+                            sessions = sessionsState,
+                            activeSession = activeSession,
+                            settings = settings,
+                            extraKeysState = extraKeysState,
+                            replayCache = container.replayCache,
+                            onSelectSession = { id -> activeSessionId = id },
                             onCreateSession = {
                                 launchCommand(container, "Terminal", listOf("/bin/bash", "-l")) { id
                                     ->
                                     activeSessionId = id
                                 }
                             },
-                            onKillSession = { activeSession?.stop() },
+                            onStopSession = { session ->
+                                session.stop()
+                                if (session.id == activeSessionId) {
+                                    activeSessionId =
+                                        sessionsState.firstOrNull { it.id != session.id }?.id
+                                }
+                            },
+                            onSelectLayout = { id -> container.extraKeysStore.selectLayout(id) },
+                            onOpenEditor = { overlay = Overlay.EXTRA_KEYS },
+                            onOpenSettings = { overlay = Overlay.TERMINAL_SETTINGS },
                             modifier = commonModifier,
                         )
                     Tab.FILES ->
@@ -277,6 +293,8 @@ fun AppRoot(container: AppContainer) {
                             onOpenServers = { overlay = Overlay.SERVERS },
                             onOpenSettings = { overlay = Overlay.SETTINGS },
                             onOpenDiagnostics = { overlay = Overlay.DIAGNOSTICS },
+                            onOpenExtraKeys = { overlay = Overlay.EXTRA_KEYS },
+                            onOpenTerminalSettings = { overlay = Overlay.TERMINAL_SETTINGS },
                             modifier = commonModifier,
                         )
                 }
@@ -379,6 +397,20 @@ fun AppRoot(container: AppContainer) {
                             toolVersions = toolVersions + results
                         }
                     },
+                    modifier = commonModifier,
+                )
+            Overlay.EXTRA_KEYS ->
+                com.uchat.android.ui.terminal.ExtraKeysEditorScreen(
+                    store = container.extraKeysStore,
+                    onBack = { overlay = Overlay.NONE },
+                    modifier = commonModifier,
+                )
+            Overlay.TERMINAL_SETTINGS ->
+                com.uchat.android.ui.terminal.TerminalSettingsScreen(
+                    settings = settings,
+                    repository = container.settingsRepository,
+                    scope = scope,
+                    onBack = { overlay = Overlay.NONE },
                     modifier = commonModifier,
                 )
         }

@@ -225,4 +225,68 @@
     <string name="update_available">An update is available</string>
     <string name="update_up_to_date">UChat is up to date</string>
     <string name="update_download">Download from GitHub Releases</string>
+
+    <!-- Terminal UI (extra keys, sessions, editor, terminal settings) -->
+    <string name="action_save">Save</string>
+    <string name="action_duplicate">Duplicate</string>
+    <string name="terminal_new_tab">New session</string>
+    <string name="terminal_scroll_bottom">Scroll to bottom</string>
+    <string name="terminal_clear">Clear terminal</string>
+    <string name="terminal_find">Find in terminal</string>
+    <string name="terminal_find_hint">Search…</string>
+    <string name="terminal_find_next">Next</string>
+    <string name="terminal_find_prev">Previous</string>
+    <string name="terminal_no_sessions">No active sessions</string>
+    <string name="terminal_no_sessions_hint">Start a session to open a real Ubuntu shell</string>
+    <string name="terminal_stop_session">Stop session</string>
+    <string name="terminal_editor">Edit extra keys</string>
+    <string name="terminal_settings">Terminal settings</string>
+    <string name="terminal_exited">exited (%1$d)</string>
+
+    <!-- Extra keys editor -->
+    <string name="editor_title">Edit extra keys</string>
+    <string name="editor_add_key">Add key</string>
+    <string name="editor_key_type">Key type</string>
+    <string name="editor_key_label">Label</string>
+    <string name="editor_key_value">Value / sequence</string>
+    <string name="editor_long_press">Long-press value (optional)</string>
+    <string name="editor_haptic">Haptic feedback</string>
+    <string name="editor_repeat">Repeat while held</string>
+    <string name="editor_modifiers">Modifiers</string>
+    <string name="editor_no_keys">No keys in this layout</string>
+    <string name="editor_no_keys_hint">Tap “Add key” to create your first key</string>
+    <string name="editor_drag_hint">Hold the handle and drag to reorder</string>
+
+    <!-- Key layouts -->
+    <string name="layouts_title">Key layouts</string>
+    <string name="layout_switch">Switch layout</string>
+    <string name="layout_create">Create layout</string>
+    <string name="layout_name">Layout name</string>
+    <string name="layout_rename">Rename</string>
+    <string name="layout_duplicate">Duplicate</string>
+    <string name="layout_delete">Delete layout</string>
+    <string name="layout_reset">Reset to default keys</string>
+    <string name="layout_reset_all">Reset all layouts</string>
+    <string name="layout_set_default">Set as default</string>
+    <string name="layout_built_in">Built-in</string>
+    <string name="layout_delete_blocked">Built-in layouts cannot be deleted</string>
+
+    <!-- Terminal settings -->
+    <string name="tset_title">Terminal</string>
+    <string name="tset_font_size">Terminal font size</string>
+    <string name="tset_key_height">Key height</string>
+    <string name="tset_key_width">Key minimum width</string>
+    <string name="tset_toolbar_position">Toolbar position</string>
+    <string name="tset_position_top">Top</string>
+    <string name="tset_position_bottom">Bottom</string>
+    <string name="tset_toolbar_visible">Show extra-key toolbar</string>
+    <string name="tset_haptics">Haptic feedback</string>
+    <string name="tset_repeat">Key repeat on hold</string>
+    <string name="tset_cursor_blink">Blinking cursor</string>
+    <string name="tset_scroll_button">Quick scroll-to-bottom button</string>
+    <string name="tset_modifier_mode">Modifier behavior</string>
+    <string name="tset_mode_momentary">Momentary</string>
+    <string name="tset_mode_latch">Latched</string>
+    <string name="tset_mode_lock">Locked</string>
+    <string name="tset_mode_desc">Momentary: clears after one key · Latched: tap twice to lock · Locked: toggles on/off</string>
 </resources>

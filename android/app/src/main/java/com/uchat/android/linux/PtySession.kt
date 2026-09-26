@@ -46,7 +46,8 @@ class PtySession(
 
     val startedAtMillis: Long = System.currentTimeMillis()
 
-    @Volatile private var onOutput: ((ByteArray, Int) -> Unit)? = null
+    private val outputListeners =
+        java.util.concurrent.CopyOnWriteArrayList<(ByteArray, Int) -> Unit>()
 
     @Volatile private var onExit: ((Int) -> Unit)? = null
 
@@ -55,9 +56,24 @@ class PtySession(
     private var readerJob: Job? = null
     private val readBuffer = ByteArray(32 * 1024)
 
-    fun setCallbacks(onOutput: (ByteArray, Int) -> Unit, onExit: (Int) -> Unit) {
-        this.onOutput = onOutput
+    /** Many listeners: ProcessManager (replay cache) + the attached terminal screen. */
+    fun addOutputListener(listener: (ByteArray, Int) -> Unit) {
+        outputListeners.add(listener)
+    }
+
+    fun removeOutputListener(listener: (ByteArray, Int) -> Unit) {
+        outputListeners.remove(listener)
+    }
+
+    /** The exit listener is single-slot: the attached terminal screen owns it. */
+    fun setExitListener(onExit: (Int) -> Unit) {
         this.onExit = onExit
+    }
+
+    /** Compatibility helper: registers one output listener plus the exit listener. */
+    fun setCallbacks(onOutput: (ByteArray, Int) -> Unit, onExit: (Int) -> Unit) {
+        addOutputListener(onOutput)
+        setExitListener(onExit)
     }
 
     fun start() {
@@ -74,7 +90,7 @@ class PtySession(
                 while (state == SessionState.RUNNING) {
                     val n = Pty.nativeRead(handle, readBuffer)
                     if (n <= 0) break
-                    onOutput?.invoke(readBuffer, n)
+                    for (listener in outputListeners) listener(readBuffer, n)
                 }
                 val code = Pty.nativeWaitFor(handle)
                 exitCode = code
@@ -138,8 +154,14 @@ class PtySession(
  * App-scoped registry of every live session. This is what makes processes survive UI navigation,
  * Activity recreation and app backgrounding: sessions are attached to the application + foreground
  * service, never to the Activity.
+ *
+ * [outputTap] (optional) receives every output chunk of every session — wired to the terminal
+ * replay cache so detached sessions keep a bounded scrollback (layer 2 buffer).
  */
-class ProcessManager(private val scope: CoroutineScope) {
+class ProcessManager(
+    private val scope: CoroutineScope,
+    private val outputTap: ((sessionId: Long, bytes: ByteArray, length: Int) -> Unit)? = null,
+) {
 
     private val sessions = ConcurrentHashMap<Long, PtySession>()
 
@@ -152,13 +174,11 @@ class ProcessManager(private val scope: CoroutineScope) {
 
     fun register(session: PtySession) {
         sessions[session.id] = session
-        session.setCallbacks(
-            onOutput = { _, _ -> /* terminal rendering is attached per-screen */ },
-            onExit = { sessions[session.id]?.let {} },
-        )
-        // Detached buffers accumulate inside PtySession only while a terminal
-        // screen is attached; ProcessManager keeps no output history to stay
-        // memory friendly (spec #33).
+        val tap = outputTap
+        if (tap != null) {
+            session.addOutputListener { bytes, len -> tap(session.id, bytes, len) }
+        }
+        session.setExitListener { /* UI attaches its own exit listener when visible */}
     }
 
     fun remove(id: Long) {
