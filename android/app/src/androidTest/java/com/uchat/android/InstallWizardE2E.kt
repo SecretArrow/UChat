@@ -67,18 +67,19 @@ class InstallWizardE2E {
                         countOf(R.string.install_step_status_failed) > 0
                 }
                 true
-            } catch (e: AssertionError) {
+            } catch (e: Throwable) {
                 false
             }
 
         if (!reacted) {
             // If the Start button is disabled (emulator storage below the pinned requirement) the
             // tap cannot trigger anything — an environment limitation, not a wiring regression.
+            // In that case the wizard MUST still show the storage shortfall warning.
             val startEnabled =
                 try {
                     composeRule.onNodeWithText(text(R.string.install_start)).assertIsEnabled()
                     true
-                } catch (e: AssertionError) {
+                } catch (e: Throwable) {
                     false
                 }
             if (startEnabled) {
@@ -87,6 +88,10 @@ class InstallWizardE2E {
                         "wizard wiring regression",
                 )
             }
+            assertTrue(
+                "disabled Install must be explained by the insufficient-storage warning",
+                countOf(R.string.install_insufficient_storage) > 0,
+            )
         }
     }
 

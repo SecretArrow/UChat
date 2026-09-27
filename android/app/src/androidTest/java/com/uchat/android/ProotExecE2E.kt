@@ -87,6 +87,11 @@ class ProotExecE2E {
                     "-c",
                     "echo $marker && id -u",
                 )
+                .apply {
+                    // proot's seccomp trace acceleration is killed by the zygote seccomp policy
+                    // (SIGSYS / exit 159). The app always sets PROOT_NO_SECCOMP=1 — mirror it.
+                    environment()["PROOT_NO_SECCOMP"] = "1"
+                }
                 .redirectErrorStream(true)
                 .start()
         val output = process.inputStream.bufferedReader().readText()
