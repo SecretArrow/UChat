@@ -140,29 +140,26 @@ class InstallResilienceE2E {
         paths.ensureDirs()
         ensureRootfs(paths)
 
-        // ---- Ground-truth FS probe (pure diagnostics, never fails the test) ----
+        // ---- Ground-truth FS probe (pure diagnostics, reported through the assert message) ----
+        var probeReport = ""
         try {
-            println("[e2e-probe] with l2s:\n" + runFsProbe(paths, listOf("--link2symlink")))
-            println("[e2e-probe] without l2s:\n" + runFsProbe(paths, emptyList()))
+            probeReport += "WITH l2s:\n" + runFsProbe(paths, listOf("--link2symlink"))
+            probeReport += "WITHOUT l2s:\n" + runFsProbe(paths, emptyList())
             val status = File(paths.ubuntuRoot, "var/lib/dpkg/status")
             val dir = File(paths.ubuntuRoot, "var/lib/dpkg")
             val st = android.system.Os.lstat(status.absolutePath)
             val dt = android.system.Os.lstat(dir.absolutePath)
-            println(
-                "[e2e-probe] host status uid=${st.st_uid} " +
-                    "mode=${Integer.toOctalString(st.st_mode and 0xFFF)}"
-            )
-            println(
-                "[e2e-probe] host dir   uid=${dt.st_uid} " +
-                    "mode=${Integer.toOctalString(dt.st_mode and 0xFFF)}"
-            )
+            probeReport +=
+                "host status uid=${st.st_uid} mode=${Integer.toOctalString(st.st_mode and 0xFFF)}\n"
+            probeReport +=
+                "host dir uid=${dt.st_uid} mode=${Integer.toOctalString(dt.st_mode and 0xFFF)}\n"
             android.system.Os.link(status.absolutePath, File(dir, "probe-host-link").absolutePath)
-            println("[e2e-probe] host link: OK")
+            probeReport += "host link: OK\n"
             File(dir, "probe-host-link").delete()
         } catch (e: ErrnoException) {
-            println("[e2e-probe] host probe errno=${e.errno}: ${e.message}")
+            probeReport += "host probe errno=${e.errno}: ${e.message}\n"
         } catch (e: Exception) {
-            println("[e2e-probe] host probe failed: $e")
+            probeReport += "host probe failed: $e\n"
         }
 
         val shell = Shell(paths, DeviceAbi.current())
@@ -177,7 +174,8 @@ class InstallResilienceE2E {
         lock.writeText("")
         val healedA = shell.runScript("${Proot.UBUNTU_SCRIPTS}/dpkg-recover.sh")
         assertTrue(
-            "recovery must succeed on an interrupted journal: ${healedA.combined.take(300)}",
+            "recovery must succeed on an interrupted journal: ${healedA.combined.take(300)}\n" +
+                "PROBE:\n${probeReport.take(1500)}",
             healedA.success,
         )
         assertEquals(
