@@ -60,6 +60,9 @@ class InstallResilienceE2E {
         listOf("dev", "proc", "sys", "tmp", "root/workspace", "root/downloads").forEach {
             File(paths.ubuntuRoot, it).mkdirs()
         }
+        // Same hygiene the production initialize step performs (stale l2s bookkeeping
+        // wedges dpkg's status backup).
+        paths.cleanDpkgLinkDebris()
         ScriptInstaller.install(context, paths)
     }
 

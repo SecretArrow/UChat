@@ -57,6 +57,12 @@ object Proot {
                 paths.effectiveProotBinary.absolutePath,
                 "--kill-on-exit",
                 "-0",
+                // dpkg backs up its status database with hardlink(status, status-old) —
+                // Android's SELinux policy denies `link` to app domains, so every apt write
+                // dies with "E: Sub-process /usr/bin/dpkg returned an error code (2)" (the
+                // v1.6.0 field report). link2symlink transparently converts those hardlinks
+                // to symlinks — the same solution Termux's proot-distro ships.
+                "--link2symlink",
                 "-w",
                 UBUNTU_HOME,
                 "-r",

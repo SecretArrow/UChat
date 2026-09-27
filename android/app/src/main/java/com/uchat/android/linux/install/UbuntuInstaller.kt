@@ -625,5 +625,8 @@ class UbuntuInstaller(
         }
         File(paths.ubuntuRoot, "tmp").setReadable(true, false)
         File(paths.ubuntuRoot, "tmp").setWritable(true, false)
+        // Stale link2symlink bookkeeping wedges the next dpkg write (runs before every
+        // install/retry/resume since this is called at step 4 on every runInstall).
+        paths.cleanDpkgLinkDebris()
     }
 }
