@@ -43,16 +43,35 @@ class ProotExecE2E {
         )
         assertTrue("libproot.so must have the exec bit", proot.canExecute())
         assertTrue(
-            "libproot.so must be non-trivial (>1MB static binary)",
-            proot.length() > 1_000_000
+            "libproot.so must be a real binary (>100KB), got ${proot.length()} bytes",
+            proot.length() > 100_000,
         )
+        // proot's companion libs must be extracted next to it.
+        assertTrue(
+            "libtalloc.so must be bundled next to proot",
+            File(libDir, "libtalloc.so").isFile,
+        )
+        assertTrue(
+            "libandroid-shmem.so must be bundled next to proot",
+            File(libDir, "libandroid-shmem.so").isFile,
+        )
+    }
+
+    /** Host-side env every proot invocation needs on Android (mirrors Proot.environment). */
+    private fun prootEnv(process: ProcessBuilder) {
+        process.environment()["LD_LIBRARY_PATH"] = context.applicationInfo.nativeLibraryDir
+        process.environment()["PROOT_TMP_DIR"] = context.cacheDir.absolutePath
+        process.environment()["PROOT_NO_SECCOMP"] = "1"
     }
 
     @Test
     fun prootReallyExecutesFromNativeLibraryDir() {
         val proot = File(context.applicationInfo.nativeLibraryDir, "libproot.so")
         val process =
-            ProcessBuilder(proot.absolutePath, "--version").redirectErrorStream(true).start()
+            ProcessBuilder(proot.absolutePath, "--version")
+                .apply { prootEnv(this) }
+                .redirectErrorStream(true)
+                .start()
         val output = process.inputStream.bufferedReader().readText()
         assertTrue("proot --version must exit 0", process.waitFor(30, TimeUnit.SECONDS))
         assertEquals(0, process.exitValue())
@@ -66,7 +85,11 @@ class ProotExecE2E {
     fun prootRunsItsOwnHelpWithoutRootfs() {
         // Exercises more than a single flag: proot must initialise its loader/heap on-device.
         val proot = File(context.applicationInfo.nativeLibraryDir, "libproot.so")
-        val process = ProcessBuilder(proot.absolutePath, "--help").redirectErrorStream(true).start()
+        val process =
+            ProcessBuilder(proot.absolutePath, "--help")
+                .apply { prootEnv(this) }
+                .redirectErrorStream(true)
+                .start()
         val output = process.inputStream.bufferedReader().readText()
         assertTrue(process.waitFor(30, TimeUnit.SECONDS))
         assertTrue(output.contains("usage", ignoreCase = true))
@@ -87,11 +110,7 @@ class ProotExecE2E {
                     "-c",
                     "echo $marker && id -u",
                 )
-                .apply {
-                    // proot's seccomp trace acceleration is killed by the zygote seccomp policy
-                    // (SIGSYS / exit 159). The app always sets PROOT_NO_SECCOMP=1 — mirror it.
-                    environment()["PROOT_NO_SECCOMP"] = "1"
-                }
+                .apply { prootEnv(this) }
                 .redirectErrorStream(true)
                 .start()
         val output = process.inputStream.bufferedReader().readText()

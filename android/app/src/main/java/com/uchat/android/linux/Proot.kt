@@ -87,6 +87,9 @@ object Proot {
                 // has no /tmp, so point it at the app cache dir whenever we know it.
                 "PROOT_TMP_DIR" to (paths?.cacheDir?.absolutePath ?: "/tmp"),
             )
+        // The bundled proot (Termux/NDK build) needs its companion libs (libtalloc.so,
+        // libandroid-shmem.so), which live next to it in nativeLibraryDir.
+        paths?.nativeLibDir?.let { libDir -> base["LD_LIBRARY_PATH"] = libDir.absolutePath }
         base.putAll(extra)
         return base.map { (k, v) -> "$k=$v" }
     }

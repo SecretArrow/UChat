@@ -40,7 +40,8 @@ class UChatPaths(context: Context) {
 
     val cacheDir: File = context.cacheDir
     val sharedDir: File? = context.getExternalFilesDir(null)
-    private val nativeLibDir: File? = context.applicationInfo?.nativeLibraryDir?.let { File(it) }
+    /** Directory where the package manager extracts bundled native binaries (incl. proot). */
+    val nativeLibDir: File? = context.applicationInfo?.nativeLibraryDir?.let { File(it) }
 
     val prootBinary: File
         get() = File(runtimeDir, "proot")
