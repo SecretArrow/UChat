@@ -133,8 +133,10 @@ class Shell(private val paths: UChatPaths, private val abi: DeviceAbi) {
             ExecResult(process.exitValue(), stdout.toString(), stderr.toString())
         }
 
-    /** Runs a shell script from the UChat scripts bind (path is inside Ubuntu). [onLine]
-     *  stays the LAST parameter so existing trailing-lambda call sites keep compiling. */
+    /**
+     * Runs a shell script from the UChat scripts bind (path is inside Ubuntu). [onLine] stays the
+     * LAST parameter so existing trailing-lambda call sites keep compiling.
+     */
     suspend fun runScript(
         scriptNameInUbuntu: String,
         timeoutSeconds: Long = 1800,
