@@ -86,8 +86,7 @@ class Shell(private val paths: UChatPaths, private val abi: DeviceAbi) {
             run {
                 var attempts = 0
                 while (prootPid == 0 && attempts < 20) {
-                    prootPid =
-                        pidFile.takeIf { it.isFile }?.readText()?.trim()?.toIntOrNull() ?: 0
+                    prootPid = pidFile.takeIf { it.isFile }?.readText()?.trim()?.toIntOrNull() ?: 0
                     if (prootPid == 0) Thread.sleep(50)
                     attempts++
                 }
@@ -99,26 +98,24 @@ class Shell(private val paths: UChatPaths, private val abi: DeviceAbi) {
             // Daemon reader threads that NEVER let exceptions escape: when a process is killed
             // on pause its pipe can be closed under the reader (InterruptedIOException) — an
             // uncaught exception here would crash the whole app process (seen on CI).
-            val outThread =
-                Thread {
-                    try {
-                        process.inputStream.bufferedReader().forEachLine { line ->
-                            stdout.appendLine(line)
-                            onLine?.invoke(line)
-                        }
-                    } catch (_: Exception) {
-                        // stream torn down — whatever was read is already captured
+            val outThread = Thread {
+                try {
+                    process.inputStream.bufferedReader().forEachLine { line ->
+                        stdout.appendLine(line)
+                        onLine?.invoke(line)
                     }
+                } catch (_: Exception) {
+                    // stream torn down — whatever was read is already captured
                 }
-            val errThread =
-                Thread {
-                    try {
-                        process.errorStream.bufferedReader().forEachLine { line ->
-                            stderr.appendLine(line)
-                            onLine?.invoke(line)
-                        }
-                    } catch (_: Exception) {}
-                }
+            }
+            val errThread = Thread {
+                try {
+                    process.errorStream.bufferedReader().forEachLine { line ->
+                        stderr.appendLine(line)
+                        onLine?.invoke(line)
+                    }
+                } catch (_: Exception) {}
+            }
             outThread.isDaemon = true
             errThread.isDaemon = true
             outThread.start()
@@ -129,13 +126,12 @@ class Shell(private val paths: UChatPaths, private val abi: DeviceAbi) {
             // (that exact race burned the first CI round — a pause took the full 60s timeout).
             val exited = CountDownLatch(1)
             val exitCode = AtomicInteger(Int.MIN_VALUE)
-            val reaper =
-                Thread {
-                    try {
-                        exitCode.set(process.waitFor())
-                    } catch (_: InterruptedException) {}
-                    exited.countDown()
-                }
+            val reaper = Thread {
+                try {
+                    exitCode.set(process.waitFor())
+                } catch (_: InterruptedException) {}
+                exited.countDown()
+            }
             reaper.isDaemon = true
             reaper.start()
 
@@ -162,8 +158,9 @@ class Shell(private val paths: UChatPaths, private val abi: DeviceAbi) {
                                     }
                                     process.destroy()
                                     var waited = 0
-                                    while (waited < 4000 &&
-                                        !exited.await(200, TimeUnit.MILLISECONDS)) {
+                                    while (
+                                        waited < 4000 && !exited.await(200, TimeUnit.MILLISECONDS)
+                                    ) {
                                         waited += 200
                                     }
                                     if (!exited.await(0, TimeUnit.MILLISECONDS)) {
