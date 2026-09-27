@@ -289,4 +289,7 @@
     <string name="tset_mode_latch">Terkunci sementara</string>
     <string name="tset_mode_lock">Terkunci</string>
     <string name="tset_mode_desc">Sesaat: hilang setelah satu tombol · Terkunci sementara: ketuk dua kali untuk mengunci · Terkunci: aktif/nonaktif</string>
+    <string name="terminal_keyboard">Tampilkan keyboard</string>
+    <string name="tset_scrollback">Buffer scrollback</string>
+    <string name="tset_keep_screen_on">Layar tetap menyala di terminal</string>
 </resources>

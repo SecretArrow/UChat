@@ -39,6 +39,8 @@ data class UChatSettings(
     val terminalModifierMode: ModifierMode = ModifierMode.MOMENTARY,
     val terminalCursorBlink: Boolean = true,
     val terminalScrollButton: Boolean = true,
+    val terminalScrollbackLines: Int = 2000,
+    val terminalKeepScreenOn: Boolean = false,
 )
 
 class SettingsRepository(private val context: Context) {
@@ -58,6 +60,8 @@ class SettingsRepository(private val context: Context) {
         val MODIFIER_MODE = stringPreferencesKey("terminal_modifier_mode")
         val CURSOR_BLINK = booleanPreferencesKey("terminal_cursor_blink")
         val SCROLL_BUTTON = booleanPreferencesKey("terminal_scroll_button")
+        val SCROLLBACK_LINES = intPreferencesKey("terminal_scrollback_lines")
+        val KEEP_SCREEN_ON = booleanPreferencesKey("terminal_keep_screen_on")
         val FONT_SCALE = floatPreferencesKey("unused_placeholder")
     }
 
@@ -84,6 +88,8 @@ class SettingsRepository(private val context: Context) {
                     } ?: ModifierMode.MOMENTARY,
                 terminalCursorBlink = p[Keys.CURSOR_BLINK] ?: true,
                 terminalScrollButton = p[Keys.SCROLL_BUTTON] ?: true,
+                terminalScrollbackLines = p[Keys.SCROLLBACK_LINES] ?: 2000,
+                terminalKeepScreenOn = p[Keys.KEEP_SCREEN_ON] ?: false,
             )
         }
 
@@ -141,5 +147,13 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setTerminalScrollButton(enabled: Boolean) {
         context.dataStore.edit { it[Keys.SCROLL_BUTTON] = enabled }
+    }
+
+    suspend fun setTerminalScrollbackLines(lines: Int) {
+        context.dataStore.edit { it[Keys.SCROLLBACK_LINES] = lines.coerceIn(200, 10000) }
+    }
+
+    suspend fun setTerminalKeepScreenOn(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.KEEP_SCREEN_ON] = enabled }
     }
 }

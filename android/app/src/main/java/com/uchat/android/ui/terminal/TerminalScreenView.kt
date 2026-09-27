@@ -1,12 +1,5 @@
 package com.uchat.android.ui.terminal
 
-import android.annotation.SuppressLint
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -46,7 +39,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,19 +47,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import com.uchat.android.R
-import com.uchat.android.assets.TerminalAssets
 import com.uchat.android.core.settings.UChatSettings
 import com.uchat.android.linux.PtySession
 import com.uchat.android.linux.SessionState
-import com.uchat.android.terminal.TerminalBridge
 import com.uchat.android.terminal.TerminalController
 import com.uchat.android.terminal.TerminalReplayCache
 import com.uchat.android.terminal.backend.PtyBackend
@@ -76,21 +66,18 @@ import com.uchat.android.terminal.keys.ExtraKeysState
 import com.uchat.android.terminal.keys.KeySequences
 import com.uchat.android.terminal.keys.ModifierKey
 import com.uchat.android.terminal.keys.ModifierStateHolder
+import com.uchat.android.terminal.render.TerminalView
 
 /**
  * Layer 4 UI: full-screen, terminal-first interface (dark, monospace, realtime).
  *
- * Composition of the separated terminal layers:
- * - renderer: xterm.js WebView (ANSI, Unicode, box-drawing, 10k scrollback, blinking cursor)
- * - buffer: xterm.js viewport + native [TerminalReplayCache] (bounded per-session replay)
+ * Composition of the separated terminal layers — all native:
+ * - emulator: [com.uchat.android.terminal.emulator.TerminalEmulator] (VT/xterm parser)
+ * - buffer: [com.uchat.android.terminal.emulator.TerminalBuffer] + bounded [TerminalReplayCache]
+ * - renderer: [TerminalView] (Compose Canvas, no WebView)
  * - backend: [PtyBackend] — local proot shell today; SSH later without UI changes
- * - input: Android IME through the WebView + native extra-key toolbar (low-latency direct writes)
  * - extra keys: [ExtraKeysToolbar] + editor + settings, all user customizable
- *
- * JuiceSSH-inspired behaviour: the user can scroll into history without being yanked to the bottom;
- * a quick scroll-to-bottom button appears only while reading older output.
  */
-@SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun TerminalScreenView(
     sessions: List<PtySession>,
@@ -106,10 +93,9 @@ fun TerminalScreenView(
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
-    val webViewRef = remember { mutableStateOf<WebView?>(null) }
-    val controller = remember { TerminalController({ webViewRef.value }, replayCache) }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val controller = remember { TerminalController(replayCache) }
 
     // Extra-key sticky modifiers (screen-scoped state + UI snapshot for recomposition).
     val modifierState = remember { ModifierStateHolder() }
@@ -127,13 +113,13 @@ fun TerminalScreenView(
     fun handleKeyTap(key: ExtraKey) {
         if (activeSession == null) return
         val mods = modifierState.consume()
-        controller.sendBytes(KeySequences.encode(key, mods))
+        controller.write(KeySequences.encode(key, mods))
         refreshModifiers()
     }
 
     fun handleKeyLongPress(key: ExtraKey) {
         if (activeSession == null) return
-        KeySequences.encodeLongPress(key)?.let { controller.sendBytes(it) }
+        KeySequences.encodeLongPress(key)?.let { controller.write(it) }
         refreshModifiers()
     }
 
@@ -143,12 +129,11 @@ fun TerminalScreenView(
         }
     }
     DisposableEffect(Unit) { onDispose { controller.detach() } }
-    LaunchedEffect(settings.terminalFontSize) { controller.setFontSize(settings.terminalFontSize) }
-    LaunchedEffect(settings.terminalCursorBlink) {
-        controller.setCursorBlink(settings.terminalCursorBlink)
+    LaunchedEffect(settings.terminalScrollbackLines) {
+        controller.buffer.scrollbackMax = settings.terminalScrollbackLines
     }
 
-    val atBottom by controller.atBottom.collectAsState()
+    val atBottom = controller.atBottom
     var layoutMenuOpen by remember { mutableStateOf(false) }
     var overflowOpen by remember { mutableStateOf(false) }
     var showFind by remember { mutableStateOf(false) }
@@ -228,7 +213,20 @@ fun TerminalScreenView(
                             },
                             onClick = {
                                 overflowOpen = false
-                                copySelection(webViewRef.value, context)
+                                val text = controller.selectionText ?: controller.screenText()
+                                if (text.isNotEmpty()) {
+                                    clipboard.setText(AnnotatedString(text))
+                                }
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.terminal_keyboard)) },
+                            leadingIcon = {
+                                Icon(Icons.Filled.Keyboard, contentDescription = null)
+                            },
+                            onClick = {
+                                overflowOpen = false
+                                controller.requestKeyboard()
                             },
                         )
                         DropdownMenuItem(
@@ -283,18 +281,10 @@ fun TerminalScreenView(
             if (activeSession == null) {
                 EmptyTerminalState(onCreateSession)
             } else {
-                AndroidView(
-                    factory = { ctx ->
-                        WebView(ctx).apply {
-                            this.settings.javaScriptEnabled = true
-                            this.settings.allowFileAccess = true
-                            this.settings.loadWithOverviewMode = true
-                            addJavascriptInterface(TerminalBridge(controller), "UChatTerminal")
-                            webViewClient = WebViewClient()
-                            loadUrl(TerminalAssets.PAGE)
-                            webViewRef.value = this
-                        }
-                    },
+                TerminalView(
+                    controller = controller,
+                    fontSizeSp = settings.terminalFontSize,
+                    cursorBlinkEnabled = settings.terminalCursorBlink,
                     modifier = Modifier.fillMaxSize(),
                 )
                 // Quick scroll-to-bottom — only while the user is reading history (spec).
@@ -372,10 +362,11 @@ fun TerminalScreenView(
 
     if (showFind) {
         FindDialog(
-            onFind = { query, forward ->
-                if (forward) controller.searchNext(query) else controller.searchNext(query)
+            onFind = { query, forward -> controller.searchNext(query, forward) },
+            onDismiss = {
+                controller.clearSearch()
+                showFind = false
             },
-            onDismiss = { showFind = false },
         )
     }
 }
@@ -516,15 +507,4 @@ private fun FindDialog(
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
         },
     )
-}
-
-private fun copySelection(webView: WebView?, context: Context) {
-    webView?.evaluateJavascript("(window.UChatTerm ? window.UChatTerm.getSelection() : '')") { sel
-        ->
-        val text = sel?.trim('"') ?: ""
-        if (text.isNotEmpty()) {
-            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            cm.setPrimaryClip(ClipData.newPlainText("UChat selection", text))
-        }
-    }
 }

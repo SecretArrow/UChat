@@ -289,4 +289,7 @@
     <string name="tset_mode_latch">Latched</string>
     <string name="tset_mode_lock">Locked</string>
     <string name="tset_mode_desc">Momentary: clears after one key · Latched: tap twice to lock · Locked: toggles on/off</string>
+    <string name="terminal_keyboard">Show keyboard</string>
+    <string name="tset_scrollback">Scrollback buffer</string>
+    <string name="tset_keep_screen_on">Keep screen on in terminal</string>
 </resources>

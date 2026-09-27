@@ -18,14 +18,14 @@ proot + a native pty, tomorrow it can be SSH — without redesigning a single sc
 │    font · key size · toolbar position/visibility · haptics      │
 │    key repeat · modifier mode · cursor blink · scroll button    │
 ├────────────────────────────────────────────────────────────────┤
-│ 3. Renderer (xterm.js WebView)   assets/terminal/index.html     │
+│ 3. Renderer (Compose Canvas)     terminal/render/TerminalView.kt │
 │    ANSI/escape parsing · Unicode + box-drawing glyphs           │
 │    blinking cursor · 10 000-line scrollback · smooth scroll     │
 ├────────────────────────────────────────────────────────────────┤
 │ 2. Buffer                        terminal/TerminalReplayCache   │
 │    bounded 256 KiB per-session replay, fed by ProcessManager    │
 ├────────────────────────────────────────────────────────────────┤
-│ 1. Emulator/parser               xterm.js (MIT, vendored)       │
+│ 1. Emulator/parser (Kotlin)      terminal/emulator/TerminalEmulator.kt │
 ├────────────────────────────────────────────────────────────────┤
 │ 8. Session lifecycle             terminal/backend/*             │
 │    TerminalBackend (interface)  → PtyBackend (proot pty today, │
@@ -48,7 +48,8 @@ pty read thread
 Input (user → backend):
 
 ```
-Android IME → WebView/xterm.js → UChatTerminal.onTerminalInput → backend.write
+Android IME → hidden sentinel TextField diff → controller.writeText → backend.write
+Hardware keys → KeyHandler (CSI/SS3/CTRL codes) → controller.write → backend.write
 Extra key tap → KeySequences.encode(key, stickyModifiers) → controller.sendBytes → backend.write
 Paste        → controller.paste → UChatTerm.paste (bracketed paste aware)
 ```
@@ -59,7 +60,8 @@ Paste        → controller.paste → UChatTerm.paste (bracketed paste aware)
   lowest possible latency while output is streaming.
 - **Output is coalesced.** Chunks queue up and flush every 16 ms (max 128 KiB per flush) so a
   `cat huge.log` burst paints smoothly instead of flooding the JS bridge.
-- **The user is never yanked to the bottom.** The xterm viewport reports its own scroll state
+- **The user is never yanked to the bottom.** The native renderer anchors the viewport while
+  the user reads scrollback; incoming output shifts the anchor instead of forcing them down.
   (`onScrollStateChanged(atBottom)`); the quick scroll-to-bottom button appears only while
   reading history.
 - **Detached sessions keep context.** The replay cache stores the last 256 KiB per session even

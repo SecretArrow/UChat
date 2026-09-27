@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import com.uchat.android.R
 import com.uchat.android.core.log.Logs
@@ -81,6 +82,13 @@ fun AppRoot(container: AppContainer) {
     val installState by container.installer.state.collectAsState()
     val extraKeysState by container.extraKeysStore.state.collectAsState()
     val sessionsFlow = remember { MutableStateFlow<List<PtySession>>(emptyList()) }
+
+    // Keep the screen on while the terminal tab is visible (user preference, JuiceSSH-style).
+    val view = LocalView.current
+    LaunchedEffect(tab, overlay, settings.terminalKeepScreenOn) {
+        view.keepScreenOn =
+            settings.terminalKeepScreenOn && tab == Tab.TERMINAL && overlay == Overlay.NONE
+    }
     val sessionsState by sessionsFlow.collectAsState()
     var activeSessionId by remember { mutableStateOf<Long?>(null) }
 

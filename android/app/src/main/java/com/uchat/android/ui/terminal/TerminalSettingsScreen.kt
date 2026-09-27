@@ -182,6 +182,24 @@ fun TerminalSettingsScreen(
                 checked = settings.terminalScrollButton,
                 onChange = { scope.launch { repository.setTerminalScrollButton(it) } },
             )
+
+            Spacer(Modifier.height(16.dp))
+            SectionTitle(stringResource(R.string.tset_scrollback))
+            SliderSetting(
+                label = stringResource(R.string.tset_scrollback),
+                value = settings.terminalScrollbackLines.toFloat(),
+                range = 200f..10000f,
+                steps = 48,
+                display = { "${(it.toInt() / 100) * 100} lines" },
+                onChange = {
+                    scope.launch { repository.setTerminalScrollbackLines((it.toInt() / 100) * 100) }
+                },
+            )
+            SwitchSetting(
+                label = stringResource(R.string.tset_keep_screen_on),
+                checked = settings.terminalKeepScreenOn,
+                onChange = { scope.launch { repository.setTerminalKeepScreenOn(it) } },
+            )
             Spacer(Modifier.height(24.dp))
         }
     }
