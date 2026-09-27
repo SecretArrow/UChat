@@ -99,9 +99,11 @@ class RealToolInstallE2E {
 
         // 7. Stage the Node.js tarball from the HOST side, checksum-verified against the
         // official SHASUMS256.txt, into the bind-mounted Downloads dir.
+        // .tar.gz on purpose: gzip is guaranteed in every Ubuntu rootfs, while xz-utils is
+        // missing from ubuntu-base (the first CI run proved tar -xJf dies without xz).
         val nodeArch = nodeArchFor(abi)
         val nodeVersion = "v22.14.0"
-        val tarballName = "node-${nodeVersion}-linux-${nodeArch}.tar.xz"
+        val tarballName = "node-${nodeVersion}-linux-${nodeArch}.tar.gz"
         val tarballUrl = "https://nodejs.org/dist/${nodeVersion}/$tarballName"
         val shasums = File(paths.downloadsDir, "SHASUMS256.txt")
         shasums.delete()
@@ -129,6 +131,13 @@ class RealToolInstallE2E {
 
         // 8. THE FIX UNDER TEST: real Node.js install through the production script.
         val nodeInstall = shell.runScript("${Proot.UBUNTU_SCRIPTS}/install-node.sh") {}
+        if (!nodeInstall.success) {
+            // Full diagnostics for the next CI iteration: sizes, guest disk, complete output.
+            println("[e2e] staged tarball bytes=" + stagedTarball.length())
+            println("[e2e] guest free bytes=" + paths.filesDir.usableSpace)
+            println("[e2e] install-node.sh full output:")
+            println(nodeInstall.combined.take(4000))
+        }
         assertTrue(
             "node install failed rc=${nodeInstall.exitCode}: ${nodeInstall.combined.take(800)}",
             nodeInstall.success,

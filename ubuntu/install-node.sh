@@ -28,14 +28,14 @@ case "$ARCH" in
 esac
 
 install_from_tarball() {
-  local url="https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz"
-  local tarball="/tmp/node-dl/node.tar.xz"
+  local url="https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.gz"
+  local tarball="/tmp/node-dl/node.tar.gz"
   mkdir -p /tmp/node-dl /usr/local/lib/nodejs
 
   # Offline route (real feature): a staged tarball in the Downloads bind (/root/downloads)
   # skips the network entirely. UChat's e2e uses it, and users with flaky connectivity can
   # pre-place node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz there themselves.
-  local staged="/root/downloads/node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz"
+  local staged="/root/downloads/node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.gz"
   if [ -f "$staged" ]; then
     echo "[uchat] using staged tarball: $staged"
     cp "$staged" "$tarball"
@@ -44,9 +44,26 @@ install_from_tarball() {
     curl -fSL --retry 3 --retry-delay 2 -o "$tarball" "$url" || return 1
   fi
 
-  tar -xJf "$tarball" -C /usr/local/lib/nodejs || return 2
-  local dist_dir="/usr/local/lib/nodejs/node-${NODE_VERSION}-linux-${NODE_ARCH}"
-  [ -d "$dist_dir" ] || return 3
+  # Extract into a FRESH temp dir, then copy into place. Extracting straight over
+  # /usr/local/lib/nodejs breaks on re-installs and on filesystems whose tar behaves
+  # oddly with pre-existing dirs ("directory renamed before its status could be
+  # extracted"). A fresh extract dir makes every run deterministic.
+  local extract_dir="/tmp/node-dl/extract"
+  rm -rf "$extract_dir"
+  mkdir -p "$extract_dir"
+  tar -xzf "$tarball" -C "$extract_dir" || {
+    echo "[uchat] tar extraction failed (gzip must exist in the rootfs)"
+    return 2
+  }
+  local dist_dir="$extract_dir/node-${NODE_VERSION}-linux-${NODE_ARCH}"
+  if [ ! -d "$dist_dir" ]; then
+    echo "[uchat] extracted tree missing: $dist_dir"
+    return 3
+  fi
+  rm -rf "/usr/local/lib/nodejs/node-${NODE_VERSION}-linux-${NODE_ARCH}"
+  mkdir -p /usr/local/lib/nodejs
+  cp -a "$dist_dir" /usr/local/lib/nodejs/ || { echo "[uchat] install copy failed"; return 4; }
+  dist_dir="/usr/local/lib/nodejs/node-${NODE_VERSION}-linux-${NODE_ARCH}"
   ln -sf "$dist_dir/bin/node" /usr/local/bin/node
   ln -sf "$dist_dir/bin/npm" /usr/local/bin/npm
   ln -sf "$dist_dir/bin/npx" /usr/local/bin/npx
