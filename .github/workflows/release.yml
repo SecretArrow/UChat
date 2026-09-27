@@ -93,7 +93,7 @@ jobs:
             echo "UCHAT_KEY_PASSWORD=$UCHAT_KEY_PASSWORD" >> "$GITHUB_ENV"
             echo "signed_with=release secrets" >> "$GITHUB_OUTPUT"
           else
-            echo "No signing secrets configured — generating an EPHEMERAL CI keystore."
+            echo "::warning::No signing secrets — APK signed with EPHEMERAL key; users will NOT be able to upgrade over previous releases!"
             keytool -genkeypair -v \
               -keystore signing/uchat-ephemeral.jks \
               -storepass uchat-ephemeral -keypass uchat-ephemeral \
@@ -105,6 +105,21 @@ jobs:
             echo "UCHAT_KEY_PASSWORD=uchat-ephemeral" >> "$GITHUB_ENV"
             echo "signed_with=ephemeral CI key" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Log signing certificate fingerprint
+        run: |
+          FPR="$(keytool -list -v \
+            -keystore "$UCHAT_KEYSTORE_PATH" \
+            -storepass "$UCHAT_KEYSTORE_PASSWORD" \
+            -alias "$UCHAT_KEY_ALIAS" | grep 'SHA256:' | head -n1 | sed 's/^[[:space:]]*//' || true)"
+          echo "Signed with: ${{ steps.signing-meta.outputs.signed_with }}"
+          echo "Signing certificate: ${FPR:-<fingerprint unavailable>}"
+          {
+            echo "### 🔑 Signing"
+            echo ""
+            echo "- Signed with: **${{ steps.signing-meta.outputs.signed_with }}**"
+            echo "- Certificate SHA-256 fingerprint: \`${FPR:-unavailable}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build signed release APKs
         working-directory: android

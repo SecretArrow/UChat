@@ -3,6 +3,23 @@
 All notable changes to UChat are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [SemVer](https://semver.org/).
 
+## [1.6.0] - 2026-09-29
+
+### Fixed
+- **Install steps 5–10 no longer fail with "rootfs or proot missing"**: proot now only
+  needs its bootstrap, not the ready marker, so the installer proceeds through the
+  remaining steps instead of aborting halfway
+- **Install retry/resume no longer re-downloads the rootfs**: steps 1–3 are skipped when
+  the rootfs is already extracted, and the resume status is persisted across processes —
+  interrupted installs continue where they stopped instead of starting over
+
+### Changed
+- **Persistent APK signing key via repo secrets**: releases are now signed with one
+  stable key, so APK updates install over previous releases without uninstalling
+  (Android rejects signature mismatches, and every earlier build was signed with a
+  different ephemeral CI key). Exactly ONE uninstall is required to move off the old
+  v1.5.0 builds; every release after that upgrades in place
+
 ## [1.5.0] - 2026-09-28
 
 ### Fixed
