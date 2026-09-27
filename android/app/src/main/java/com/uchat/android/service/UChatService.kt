@@ -7,8 +7,8 @@ import android.os.Build
 import android.os.IBinder
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
-import com.uchat.android.UChatApp
 import com.uchat.android.R
+import com.uchat.android.UChatApp
 import com.uchat.android.core.log.Logs
 import com.uchat.android.linux.SessionState
 import kotlinx.coroutines.delay
@@ -54,14 +54,13 @@ class UChatService : LifecycleService() {
                 val running = sessions.filter { it.state == SessionState.RUNNING }
                 val persist = settings.persistentNotification
                 if (running.isEmpty() || !persist) {
-                    Logs.app(
-                        "UChatService stopping (running=${running.size}, persist=$persist)"
-                    )
+                    Logs.app("UChatService stopping (running=${running.size}, persist=$persist)")
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                     break
                 }
-                val details = running.take(4).map { "${it.label} — ${getString(R.string.processes_running)}" }
+                val details =
+                    running.take(4).map { "${it.label} — ${getString(R.string.processes_running)}" }
                 val notification2 =
                     NotificationHelper.buildForeground(this@UChatService, running.size, details)
                 val manager =

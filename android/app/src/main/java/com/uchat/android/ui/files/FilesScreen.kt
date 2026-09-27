@@ -136,8 +136,7 @@ fun FilesScreen(
             LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(entries, key = { it.name }) { entry ->
                     Card(
-                        Modifier
-                            .fillMaxWidth()
+                        Modifier.fillMaxWidth()
                             .combinedClickable(
                                 onClick = { if (entry.isDir) onNavigate(entry.name) },
                                 onLongClick = { menuTarget = entry },
@@ -221,10 +220,14 @@ fun FilesScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
-                    onDelete(entry)
-                    deleteTarget = null
-                }) { Text(stringResource(R.string.action_delete)) }
+                TextButton(
+                    onClick = {
+                        onDelete(entry)
+                        deleteTarget = null
+                    }
+                ) {
+                    Text(stringResource(R.string.action_delete))
+                }
             },
             dismissButton = {
                 TextButton(onClick = { deleteTarget = null }) {
@@ -288,10 +291,12 @@ fun FilesScreen(
     }
 }
 
-private enum class CreativeKind { FILE, FOLDER }
+private enum class CreativeKind {
+    FILE,
+    FOLDER
+}
 
-private fun joinPath(dir: String, name: String): String =
-    if (dir == "/") "/$name" else "$dir/$name"
+private fun joinPath(dir: String, name: String): String = if (dir == "/") "/$name" else "$dir/$name"
 
 @Composable
 private fun HeaderMenu(
@@ -364,8 +369,7 @@ private fun NameDialog(
 ) {
     var name by remember { mutableStateOf(initial) }
     val valid =
-        name.trim().isNotEmpty() &&
-            com.uchat.android.core.fs.FileOps.isAcceptableName(name.trim())
+        name.trim().isNotEmpty() && com.uchat.android.core.fs.FileOps.isAcceptableName(name.trim())
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },

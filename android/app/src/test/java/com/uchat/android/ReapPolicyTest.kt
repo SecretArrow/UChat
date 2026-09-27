@@ -8,8 +8,8 @@ import org.junit.Test
 
 /**
  * Unit tests for the session reaper decision — the guard that auto-closes dead terminal tabs
- * (releasing their pty master FDs) while keeping a freshly-exited session visible long enough
- * for the user to read the exit banner.
+ * (releasing their pty master FDs) while keeping a freshly-exited session visible long enough for
+ * the user to read the exit banner.
  */
 class ReapPolicyTest {
 

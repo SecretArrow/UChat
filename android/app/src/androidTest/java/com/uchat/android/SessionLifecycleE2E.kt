@@ -56,9 +56,11 @@ class SessionLifecycleE2E {
         val archive = File(paths.downloadsDir, rootfsEntry.id + ".e2e-lifecycle")
         archive.delete()
         Downloader().download(rootfsEntry.url, archive, rootfsEntry.sizeBytes) {}
-        assertTrue("SHA-256 must match the pinned value", Checksum.matches(archive, rootfsEntry.sha256))
-        val entries =
-            Extractor.extractTarGz(archive, paths.ubuntuRoot, rootfsEntry.extractedBytes)
+        assertTrue(
+            "SHA-256 must match the pinned value",
+            Checksum.matches(archive, rootfsEntry.sha256)
+        )
+        val entries = Extractor.extractTarGz(archive, paths.ubuntuRoot, rootfsEntry.extractedBytes)
         assertTrue("rootfs must contain many entries", entries > 1000)
         archive.delete()
 
@@ -81,12 +83,16 @@ class SessionLifecycleE2E {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val replay = TerminalReplayCache()
         var tapped = 0L
-        val manager = ProcessManager(scope, outputTap = { _, bytes, len ->
-            if (len > 0) {
-                replay.offer(1L, bytes, len)
-                tapped += len
-            }
-        })
+        val manager =
+            ProcessManager(
+                scope,
+                outputTap = { _, bytes, len ->
+                    if (len > 0) {
+                        replay.offer(1L, bytes, len)
+                        tapped += len
+                    }
+                }
+            )
 
         // 1. Real pty session (the same path the UI uses).
         val session =
@@ -101,22 +107,16 @@ class SessionLifecycleE2E {
         assertEquals(1L, session.id)
         manager.register(session)
 
-        withTimeout(30_000) {
-            while (session.state != SessionState.RUNNING) delay(100)
-        }
+        withTimeout(30_000) { while (session.state != SessionState.RUNNING) delay(100) }
 
         // 2. Output must flow into the replay cache (backend + tap wiring intact).
         session.write("echo UCHAT_CLOSE_E2E_9154\r\n".toByteArray())
-        withTimeout(15_000) {
-            while (tapped == 0L) delay(100)
-        }
+        withTimeout(15_000) { while (tapped == 0L) delay(100) }
         assertTrue("replay cache must hold output", replay.snapshot(1L).isNotEmpty())
 
         // 3. User-style stop: the session must reach EXITED on its own.
         session.stop()
-        withTimeout(30_000) {
-            while (session.state != SessionState.EXITED) delay(100)
-        }
+        withTimeout(30_000) { while (session.state != SessionState.EXITED) delay(100) }
         assertTrue(session.exitedAtMillis > 0L)
 
         // 4. Within the grace window the (dead) tab is still visible...
@@ -148,9 +148,7 @@ class SessionLifecycleE2E {
                 scope = scope,
             )
         manager.register(first)
-        withTimeout(30_000) {
-            while (first.state != SessionState.RUNNING) delay(100)
-        }
+        withTimeout(30_000) { while (first.state != SessionState.RUNNING) delay(100) }
 
         manager.closeAll()
         assertEquals(0, manager.all.size)

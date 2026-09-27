@@ -237,17 +237,14 @@ fun AppRoot(container: AppContainer) {
         container.paths.isUbuntuInstalled,
     ) {
         if (
-            container.paths.isUbuntuInstalled &&
-                runningCount > 0 &&
-                settings.persistentNotification
+            container.paths.isUbuntuInstalled && runningCount > 0 && settings.persistentNotification
         ) {
             if (
                 Build.VERSION.SDK_INT >= 33 &&
                     androidx.core.content.ContextCompat.checkSelfPermission(
                         context,
                         Manifest.permission.POST_NOTIFICATIONS,
-                    ) !=
-                        android.content.pm.PackageManager.PERMISSION_GRANTED
+                    ) != android.content.pm.PackageManager.PERMISSION_GRANTED
             ) {
                 notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
@@ -276,7 +273,7 @@ fun AppRoot(container: AppContainer) {
                     row.command.split(" "),
                     row.workingDirectory,
                     restore = true,
-                ) { }
+                ) {}
                 container.database.processDao().deleteBySessionId(row.sessionId)
             }
         } catch (e: Exception) {
@@ -485,9 +482,7 @@ fun AppRoot(container: AppContainer) {
                             onCloseAllSessions = {
                                 container.processManager.closeAll()
                                 container.replayCache.clearAll()
-                                scope.launch {
-                                    container.database.processDao().deleteAll()
-                                }
+                                scope.launch { container.database.processDao().deleteAll() }
                                 activeSessionId = null
                             },
                             onSelectLayout = { id -> container.extraKeysStore.selectLayout(id) },
@@ -535,13 +530,23 @@ fun AppRoot(container: AppContainer) {
                             },
                             onCreateFile = { name ->
                                 scope.launch {
-                                    toastOp(runFileOp(container, FileOps.touch(joinGuestPath(filesDir, name))))
+                                    toastOp(
+                                        runFileOp(
+                                            container,
+                                            FileOps.touch(joinGuestPath(filesDir, name))
+                                        )
+                                    )
                                     refreshFiles()
                                 }
                             },
                             onCreateFolder = { name ->
                                 scope.launch {
-                                    toastOp(runFileOp(container, FileOps.mkdir(joinGuestPath(filesDir, name))))
+                                    toastOp(
+                                        runFileOp(
+                                            container,
+                                            FileOps.mkdir(joinGuestPath(filesDir, name))
+                                        )
+                                    )
                                     refreshFiles()
                                 }
                             },
@@ -796,7 +801,9 @@ fun AppRoot(container: AppContainer) {
                                 refreshFiles()
                             }
                         }
-                    ) { Text(stringResource(R.string.action_save)) }
+                    ) {
+                        Text(stringResource(R.string.action_save))
+                    }
                 },
                 dismissButton = {
                     androidx.compose.material3.TextButton(onClick = { editTarget = null }) {
@@ -861,15 +868,17 @@ private fun launchCommand(
         // Persist for restore-after-reboot / app-death recovery (removed again on exit/close).
         container.appScope.launch {
             try {
-                container.database.processDao().insert(
-                    ProcessEntity(
-                        sessionId = session.id,
-                        label = label,
-                        command = command.joinToString(" "),
-                        workingDirectory = workingDirInUbuntu,
-                        autoRestart = true,
+                container.database
+                    .processDao()
+                    .insert(
+                        ProcessEntity(
+                            sessionId = session.id,
+                            label = label,
+                            command = command.joinToString(" "),
+                            workingDirectory = workingDirInUbuntu,
+                            autoRestart = true,
+                        )
                     )
-                )
             } catch (e: Exception) {
                 Logs.app("persist session failed: ${e.message}")
             }
@@ -881,12 +890,12 @@ private fun launchCommand(
 /** Injects user-configured API keys as env vars (never logged — spec #7). */
 private fun secretsEnv(container: AppContainer): Map<String, String> {
     val map = mutableMapOf<String, String>()
-    container.secretsRepository
-        .get(SecretsRepository.OPENCODE_API_KEY)
-        ?.let { map["OPENCODE_API_KEY"] = String(it) }
-    container.secretsRepository
-        .get(SecretsRepository.CLAUDE_API_KEY)
-        ?.let { map["ANTHROPIC_API_KEY"] = String(it) }
+    container.secretsRepository.get(SecretsRepository.OPENCODE_API_KEY)?.let {
+        map["OPENCODE_API_KEY"] = String(it)
+    }
+    container.secretsRepository.get(SecretsRepository.CLAUDE_API_KEY)?.let {
+        map["ANTHROPIC_API_KEY"] = String(it)
+    }
     container.secretsRepository.get(SecretsRepository.GITHUB_TOKEN)?.let { token ->
         map["GITHUB_TOKEN"] = String(token)
         map["GH_TOKEN"] = String(token)
@@ -1120,16 +1129,13 @@ internal fun hostFileForGuest(container: AppContainer, guestPath: String): java.
     if (clean.isEmpty() || clean.split('/').any { it == ".." }) return null
     val mapped =
         when {
-            clean == Proot.UBUNTU_WORKSPACE ||
-                clean.startsWith("${Proot.UBUNTU_WORKSPACE}/") ->
+            clean == Proot.UBUNTU_WORKSPACE || clean.startsWith("${Proot.UBUNTU_WORKSPACE}/") ->
                 container.paths.workspaceDir.absolutePath.trimEnd('/') +
                     clean.removePrefix(Proot.UBUNTU_WORKSPACE)
-            clean == Proot.UBUNTU_DOWNLOADS ||
-                clean.startsWith("${Proot.UBUNTU_DOWNLOADS}/") ->
+            clean == Proot.UBUNTU_DOWNLOADS || clean.startsWith("${Proot.UBUNTU_DOWNLOADS}/") ->
                 container.paths.downloadsDir.absolutePath.trimEnd('/') +
                     clean.removePrefix(Proot.UBUNTU_DOWNLOADS)
-            else ->
-                container.paths.ubuntuRoot.absolutePath.trimEnd('/') + clean
+            else -> container.paths.ubuntuRoot.absolutePath.trimEnd('/') + clean
         }
     return java.io.File(mapped).takeIf { it.isFile }
 }
@@ -1149,7 +1155,9 @@ private fun shareFile(
     try {
         val destDir = java.io.File(container.paths.cacheDir, "shared").apply { mkdirs() }
         val dest = java.io.File(destDir, name)
-        src.inputStream().use { input -> dest.outputStream().use { output -> input.copyTo(output) } }
+        src.inputStream().use { input ->
+            dest.outputStream().use { output -> input.copyTo(output) }
+        }
         val uri =
             androidx.core.content.FileProvider.getUriForFile(
                 context,

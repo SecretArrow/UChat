@@ -21,7 +21,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -74,7 +73,10 @@ fun SecretsScreen(
     Column(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
     ) {
-        Text(stringResource(R.string.secrets_title), style = MaterialTheme.typography.headlineMedium)
+        Text(
+            stringResource(R.string.secrets_title),
+            style = MaterialTheme.typography.headlineMedium
+        )
         Text(
             stringResource(R.string.secrets_intro),
             style = MaterialTheme.typography.bodySmall,
@@ -83,8 +85,7 @@ fun SecretsScreen(
         )
 
         entries.forEach { entry ->
-            val configured =
-                remember(revision, entry.key) { repository.get(entry.key) != null }
+            val configured = remember(revision, entry.key) { repository.get(entry.key) != null }
             Card(Modifier.fillMaxWidth().padding(top = 12.dp)) {
                 Column(Modifier.padding(16.dp)) {
                     Text(entry.title, style = MaterialTheme.typography.titleSmall)
@@ -163,7 +164,9 @@ fun SecretsScreen(
                             editing = null
                         }
                     },
-                ) { Text(stringResource(R.string.action_save)) }
+                ) {
+                    Text(stringResource(R.string.action_save))
+                }
             },
             dismissButton = {
                 TextButton(onClick = { editing = null }) {
@@ -187,7 +190,9 @@ fun SecretsScreen(
                             removing = null
                         }
                     },
-                ) { Text(stringResource(R.string.action_delete)) }
+                ) {
+                    Text(stringResource(R.string.action_delete))
+                }
             },
             dismissButton = {
                 TextButton(onClick = { removing = null }) {

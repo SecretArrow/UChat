@@ -166,10 +166,7 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                OutlinedButton(
-                    onClick = onOpenSecrets,
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
+                OutlinedButton(onClick = onOpenSecrets, modifier = Modifier.padding(top = 8.dp)) {
                     Text(stringResource(R.string.settings_secrets))
                 }
                 OutlinedButton(

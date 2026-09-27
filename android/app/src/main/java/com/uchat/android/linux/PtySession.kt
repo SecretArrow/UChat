@@ -215,7 +215,10 @@ class ProcessManager(
      * "[session exited …]" banner); once the window passes the tab is closed automatically. FAILED
      * sessions (never started) are reaped immediately.
      */
-    fun reapExited(graceMillis: Long = DEFAULT_REAP_GRACE_MILLIS, nowMillis: Long = System.currentTimeMillis()) {
+    fun reapExited(
+        graceMillis: Long = DEFAULT_REAP_GRACE_MILLIS,
+        nowMillis: Long = System.currentTimeMillis()
+    ) {
         sessions.values.forEach { session ->
             if (
                 ReapPolicy.shouldReap(
@@ -246,8 +249,7 @@ object ReapPolicy {
     ): Boolean =
         when (state) {
             SessionState.FAILED -> true
-            SessionState.EXITED ->
-                exitedAtMillis > 0L && nowMillis - exitedAtMillis >= graceMillis
+            SessionState.EXITED -> exitedAtMillis > 0L && nowMillis - exitedAtMillis >= graceMillis
             else -> false
         }
 }

@@ -53,8 +53,7 @@ interface ProcessDao {
     @Query("DELETE FROM processes WHERE sessionId = :sessionId")
     suspend fun deleteBySessionId(sessionId: Long)
 
-    @Query("DELETE FROM processes")
-    suspend fun deleteAll()
+    @Query("DELETE FROM processes") suspend fun deleteAll()
 }
 
 @Dao

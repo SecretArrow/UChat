@@ -3,9 +3,9 @@ package com.uchat.android.core.fs
 /**
  * Pure builders for the shell commands behind the Files screen operations.
  *
- * Everything here is plain JVM and unit-tested: the guards (what may be deleted), the quoting
- * (user names go through single-quote shell escaping) and the base64 write path (content that
- * cannot be typed safely is transported as base64 instead).
+ * Everything here is plain JVM and unit-tested: the guards (what may be deleted), the quoting (user
+ * names go through single-quote shell escaping) and the base64 write path (content that cannot be
+ * typed safely is transported as base64 instead).
  */
 object FileOps {
 
@@ -44,8 +44,7 @@ object FileOps {
     /** Shell-quotes a single argument for `bash -c` (single-quote wrapping). */
     fun quote(arg: String): String = "'" + arg.replace("'", "'\\''") + "'"
 
-    fun rename(from: String, to: String): String =
-        "mv -n -- ${quote(from)} ${quote(to)}"
+    fun rename(from: String, to: String): String = "mv -n -- ${quote(from)} ${quote(to)}"
 
     fun delete(path: String): String = "rm -rf -- ${quote(path)}"
 
@@ -85,10 +84,51 @@ object FileOps {
     /** File extensions the built-in text editor accepts (everything else only offers Share). */
     private val TEXT_EXTENSIONS =
         setOf(
-            "txt", "md", "json", "xml", "yml", "yaml", "toml", "ini", "conf", "cfg", "properties",
-            "sh", "bash", "bashrc", "profile", "kt", "java", "py", "js", "ts", "tsx", "jsx", "c",
-            "h", "cpp", "hpp", "go", "rs", "rb", "php", "html", "css", "scss", "sql", "gradle",
-            "kts", "csv", "log", "env", "gitignore", "lock", "service", "pl", "lua", "dart",
+            "txt",
+            "md",
+            "json",
+            "xml",
+            "yml",
+            "yaml",
+            "toml",
+            "ini",
+            "conf",
+            "cfg",
+            "properties",
+            "sh",
+            "bash",
+            "bashrc",
+            "profile",
+            "kt",
+            "java",
+            "py",
+            "js",
+            "ts",
+            "tsx",
+            "jsx",
+            "c",
+            "h",
+            "cpp",
+            "hpp",
+            "go",
+            "rs",
+            "rb",
+            "php",
+            "html",
+            "css",
+            "scss",
+            "sql",
+            "gradle",
+            "kts",
+            "csv",
+            "log",
+            "env",
+            "gitignore",
+            "lock",
+            "service",
+            "pl",
+            "lua",
+            "dart",
         )
 
     fun isTextFile(name: String): Boolean {
