@@ -129,22 +129,24 @@ class UChatPaths(context: Context) {
     }
 
     /**
-     * Removes leftover link2symlink bookkeeping from the dpkg database. proot's
-     * `--link2symlink` extension turns dpkg's hardlink(status, status-old) into symlinks and
-     * tracks them in `.l2s.*` files that are HIDDEN inside the guest but live as real files
-     * here on the host. A run killed mid-dpkg-write can leave them behind, and stale state
-     * makes the NEXT dpkg backup fail ("Operation not permitted"). The guest cannot see or
-     * delete these files — only the app (host side) can.
+     * Removes leftover link2symlink bookkeeping from the dpkg database. proot's `--link2symlink`
+     * extension turns dpkg's hardlink(status, status-old) into symlinks and tracks them in `.l2s.*`
+     * files that are HIDDEN inside the guest but live as real files here on the host. A run killed
+     * mid-dpkg-write can leave them behind, and stale state makes the NEXT dpkg backup fail
+     * ("Operation not permitted"). The guest cannot see or delete these files — only the app (host
+     * side) can.
      */
     fun cleanDpkgLinkDebris() {
         try {
             val dpkgDir = File(ubuntuRoot, "var/lib/dpkg")
             if (!dpkgDir.isDirectory) return
-            dpkgDir.listFiles { f -> f.isFile }?.forEach { f ->
-                if (f.name.startsWith(".l2s.") || f.name == "status-new") {
-                    f.delete()
+            dpkgDir
+                .listFiles { f -> f.isFile }
+                ?.forEach { f ->
+                    if (f.name.startsWith(".l2s.") || f.name == "status-new") {
+                        f.delete()
+                    }
                 }
-            }
         } catch (_: Exception) {
             // Best-effort hygiene — never fail the installer over it.
         }
