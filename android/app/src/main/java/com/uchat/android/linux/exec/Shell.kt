@@ -44,7 +44,7 @@ class Shell(private val paths: UChatPaths, private val abi: DeviceAbi) {
                     .apply {
                         environment()
                             .putAll(
-                                Proot.environment(abi).associate {
+                                Proot.environment(paths, abi).associate {
                                     val idx = it.indexOf('=')
                                     it.substring(0, idx) to it.substring(idx + 1)
                                 }

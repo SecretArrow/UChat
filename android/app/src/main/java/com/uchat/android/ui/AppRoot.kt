@@ -36,6 +36,7 @@ import com.uchat.android.service.UChatService
 import com.uchat.android.ui.files.FileEntry
 import com.uchat.android.ui.files.FilesScreen
 import com.uchat.android.ui.home.HomeScreen
+import com.uchat.android.ui.home.InstallWizardScreen
 import com.uchat.android.ui.more.MoreScreen
 import com.uchat.android.ui.processes.ProcessesScreen
 import com.uchat.android.ui.projects.ProjectsScreen
@@ -146,39 +147,55 @@ fun AppRoot(container: AppContainer) {
             Overlay.NONE ->
                 when (tab) {
                     Tab.HOME ->
-                        HomeScreen(
-                            paths = container.paths,
-                            installState = installState,
-                            runningProcesses =
-                                sessionsState.count { it.state == SessionState.RUNNING },
-                            projectCount = projects.size,
-                            networkConnected = true,
-                            onOpenTerminal = { tab = Tab.TERMINAL },
-                            onLaunchOpenCode = {
-                                launchCommand(
-                                    container,
-                                    "OpenCode",
-                                    listOf("opencode"),
-                                ) { id ->
-                                    activeSessionId = id
-                                    tab = Tab.TERMINAL
-                                }
-                            },
-                            onLaunchClaude = {
-                                launchCommand(
-                                    container,
-                                    "Claude",
-                                    listOf("claude"),
-                                ) { id ->
-                                    activeSessionId = id
-                                    tab = Tab.TERMINAL
-                                }
-                            },
-                            onOpenProjects = { tab = Tab.PROJECTS },
-                            onOpenFiles = { tab = Tab.FILES },
-                            onInstallStart = { container.installer.start(container.abi) },
-                            modifier = commonModifier,
-                        )
+                        // Until Ubuntu exists the HOME tab IS the install wizard — always showing
+                        // live step progress, the download bar and any fatal error with retry.
+                        // (Previously the wizard was orphaned and the user saw nothing happen.)
+                        if (!container.paths.isUbuntuInstalled) {
+                            InstallWizardScreen(
+                                abi = container.abi,
+                                registry = container.assetRegistry,
+                                paths = container.paths,
+                                state = installState,
+                                onStart = { container.installer.start(container.abi) },
+                                onPause = { container.installer.pause() },
+                                onResume = { container.installer.resume(container.abi) },
+                                onCancel = { container.installer.cancel() },
+                                onReady = { /* dashboard renders automatically once installed */},
+                                modifier = commonModifier,
+                            )
+                        } else {
+                            HomeScreen(
+                                paths = container.paths,
+                                runningProcesses =
+                                    sessionsState.count { it.state == SessionState.RUNNING },
+                                projectCount = projects.size,
+                                networkConnected = true,
+                                onOpenTerminal = { tab = Tab.TERMINAL },
+                                onLaunchOpenCode = {
+                                    launchCommand(
+                                        container,
+                                        "OpenCode",
+                                        listOf("opencode"),
+                                    ) { id ->
+                                        activeSessionId = id
+                                        tab = Tab.TERMINAL
+                                    }
+                                },
+                                onLaunchClaude = {
+                                    launchCommand(
+                                        container,
+                                        "Claude",
+                                        listOf("claude"),
+                                    ) { id ->
+                                        activeSessionId = id
+                                        tab = Tab.TERMINAL
+                                    }
+                                },
+                                onOpenProjects = { tab = Tab.PROJECTS },
+                                onOpenFiles = { tab = Tab.FILES },
+                                modifier = commonModifier,
+                            )
+                        }
                     Tab.PROJECTS ->
                         ProjectsScreen(
                             projects = projects,

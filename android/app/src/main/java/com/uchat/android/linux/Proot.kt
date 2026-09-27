@@ -23,7 +23,7 @@ object Proot {
     const val UBUNTU_SCRIPTS = "/root/.uchat-scripts"
     const val UBUNTU_HOME = "/root"
 
-    fun binaryFor(paths: UChatPaths, abi: DeviceAbi): File = paths.prootBinary
+    fun binaryFor(paths: UChatPaths, abi: DeviceAbi): File = paths.effectiveProotBinary
 
     /**
      * argv to run [innerCommand] inside the Ubuntu environment. [innerCommand] is an execve argv
@@ -35,10 +35,12 @@ object Proot {
         innerCommand: List<String>,
         withWorkspace: Boolean = true,
     ): List<String> {
-        require(paths.isUbuntuInstalled) { "Ubuntu rootfs or proot binary is missing" }
+        require(paths.isUbuntuInstalled) {
+            "Ubuntu rootfs or proot binary is missing (proot=${paths.effectiveProotBinary})"
+        }
         val args =
             mutableListOf(
-                paths.prootBinary.absolutePath,
+                paths.effectiveProotBinary.absolutePath,
                 "--kill-on-exit",
                 "-0",
                 "-w",
@@ -67,6 +69,7 @@ object Proot {
 
     /** Environment for every process started inside Ubuntu. */
     fun environment(
+        paths: UChatPaths? = null,
         abi: DeviceAbi,
         extra: Map<String, String> = emptyMap(),
     ): List<String> {
@@ -80,7 +83,9 @@ object Proot {
                 "PATH" to
                     "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.local/bin:/root/.bun/bin",
                 "PROOT_NO_SECCOMP" to "1",
-                "PROOT_TMP_DIR" to "/tmp",
+                // proot itself creates temp files on the HOST before starting the guest; Android
+                // has no /tmp, so point it at the app cache dir whenever we know it.
+                "PROOT_TMP_DIR" to (paths?.cacheDir?.absolutePath ?: "/tmp"),
             )
         base.putAll(extra)
         return base.map { (k, v) -> "$k=$v" }
@@ -100,8 +105,10 @@ object Proot {
         val handle =
             Pty.nativeOpenTerminal(
                 argv.toTypedArray(),
-                workingDirInUbuntu,
-                environment(abi, extraEnv).toTypedArray(),
+                // Host-side cwd for the child BEFORE proot starts; /root does not exist on the
+                // host. proot's own -w sets the cwd inside the guest.
+                paths.filesDir.absolutePath,
+                environment(paths, abi, extraEnv).toTypedArray(),
                 24,
                 80,
             )
@@ -118,15 +125,27 @@ object Proot {
         return session
     }
 
-    /** Copies DNS config into the rootfs so apt/curl resolve names (spec #27). */
+    /**
+     * Copies DNS config into the rootfs so apt/curl resolve names (spec #27).
+     *
+     * Android itself has NO /etc/resolv.conf (DNS lives in netd), so when the host file is missing
+     * or has no nameserver we write public resolvers — otherwise apt fails instantly and the
+     * install dies at the "essentials" step with no visible cause.
+     */
     fun syncResolvConf(paths: UChatPaths) {
         try {
-            val src = File("/etc/resolv.conf")
             val dst = File(paths.ubuntuRoot, "etc/resolv.conf")
-            if (src.isFile && dst.parentFile != null) {
-                dst.parentFile?.mkdirs()
-                src.copyTo(dst, overwrite = true)
+            dst.parentFile?.mkdirs()
+            var content =
+                try {
+                    File("/etc/resolv.conf").takeIf { it.isFile }?.readText() ?: ""
+                } catch (_: Exception) {
+                    ""
+                }
+            if (!content.contains("nameserver")) {
+                content = "nameserver 1.1.1.1\nnameserver 8.8.8.8\nnameserver 9.9.9.9\n"
             }
+            dst.writeText(content)
         } catch (e: Exception) {
             Logs.network("resolv.conf sync failed: ${e.message}")
         }

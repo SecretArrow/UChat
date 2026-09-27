@@ -57,7 +57,7 @@ fun InstallWizardScreen(
     onReady: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val requirement = registry.installRequirementFor(abi)
+    val requirement = registry.installRequirementFor(abi, prootBundled = paths.bundledProot != null)
     val rootfsEntry = registry.rootfsFor(abi)
     val availableBytes = paths.totalUsableBytes()
 

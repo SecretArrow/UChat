@@ -93,7 +93,18 @@ android {
         buildConfig = true
     }
 
-    packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
+    packaging {
+        resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+        // Android 10+ (targetSdk >= 29) forbids exec() of binaries stored in the writable app
+        // data directory (W^X policy). proot therefore ships as libproot.so and must be EXTRACTED
+        // to nativeLibraryDir, where exec() is allowed. useLegacyPackaging=true makes the package
+        // manager materialize the .so files on disk instead of loading them straight from the APK.
+        jniLibs {
+            useLegacyPackaging = true
+            // proot is a prebuilt static executable, not a build artifact — leave it untouched.
+            keepDebugSymbols += "**/libproot.so"
+        }
+    }
 
     lint {
         abortOnError = true

@@ -2,6 +2,7 @@ package com.uchat.android.linux.install
 
 import com.uchat.android.core.AppError
 import com.uchat.android.core.arch.DeviceAbi
+import com.uchat.android.core.format.Format
 import com.uchat.android.core.fs.UChatPaths
 import com.uchat.android.core.log.Logs
 import com.uchat.android.data.registry.AssetEntry
@@ -35,6 +36,7 @@ class UbuntuInstaller(
     private val paths: UChatPaths,
     private val registry: AssetRegistry,
     private val scope: CoroutineScope,
+    private val bundledProot: () -> File? = { null },
 ) {
 
     private val downloader = Downloader()
@@ -97,11 +99,12 @@ class UbuntuInstaller(
     }
 
     private suspend fun runInstall(abi: DeviceAbi) {
-        val requirement = registry.installRequirementFor(abi)
+        val bundled = bundledProot()
+        val requirement = registry.installRequirementFor(abi, prootBundled = bundled != null)
         val rootfsEntry = registry.rootfsFor(abi)
         val prootEntry = registry.prootFor(abi)
 
-        if (rootfsEntry == null || prootEntry == null || requirement == null) {
+        if (rootfsEntry == null || requirement == null || (prootEntry == null && bundled == null)) {
             fail(
                 InstallStep.DOWNLOAD_ROOTFS,
                 AppError(
@@ -115,9 +118,38 @@ class UbuntuInstaller(
         stateInternal.value = stateInternal.value.copy(running = true, paused = false, fatal = null)
 
         try {
-            // Step 1 — download rootfs + proot (resumable, size-verified)
+            // Step 1 — download rootfs (resumable, size-verified)
             if (resumableStep == null)
                 setStepStatus(InstallStep.DOWNLOAD_ROOTFS, StepStatus.Running)
+            appendLog("rootfs: ${rootfsEntry.name}")
+
+            // Pre-flight checks so failures surface in seconds, not after a 30 MB download.
+            if (!probeUrl(rootfsEntry.url)) {
+                fail(
+                    InstallStep.DOWNLOAD_ROOTFS,
+                    AppError(
+                        title = "Network unreachable",
+                        reason =
+                            "Cannot reach ${rootfsEntry.url}. Check the device's internet " +
+                                "connection and try again.",
+                    ),
+                )
+                return
+            }
+            val usable = paths.totalUsableBytes()
+            if (usable < requirement.minFreeBytes) {
+                fail(
+                    InstallStep.DOWNLOAD_ROOTFS,
+                    AppError(
+                        title = "Not enough storage",
+                        reason =
+                            "${Format.bytes(usable)} free, but at least " +
+                                "${Format.bytes(requirement.minFreeBytes)} is required.",
+                    ),
+                )
+                return
+            }
+
             val rootfsFile =
                 downloadAsset(rootfsEntry) { p ->
                     stateInternal.value =
@@ -128,7 +160,6 @@ class UbuntuInstaller(
                             rootfsEtaSeconds = p.etaSeconds,
                         )
                 }
-            val prootFile = downloadAsset(prootEntry)
             setStepStatus(InstallStep.DOWNLOAD_ROOTFS, StepStatus.Done)
 
             // Step 2 — verify checksums before anything touches disk layout
@@ -146,16 +177,26 @@ class UbuntuInstaller(
                 )
                 return
             }
-            if (!Checksum.matches(prootFile, prootEntry.sha256)) {
+            if (bundled == null) {
+                val prootFile = downloadAsset(prootEntry!!)
+                if (!Checksum.matches(prootFile, prootEntry.sha256)) {
+                    prootFile.delete()
+                    fail(
+                        InstallStep.VERIFY_CHECKSUM,
+                        AppError(
+                            title = "Checksum mismatch",
+                            reason =
+                                "The downloaded proot binary does not match the pinned SHA-256.",
+                        ),
+                    )
+                    return
+                }
+                paths.runtimeDir.mkdirs()
+                prootFile.copyTo(paths.prootBinary, overwrite = true)
                 prootFile.delete()
-                fail(
-                    InstallStep.VERIFY_CHECKSUM,
-                    AppError(
-                        title = "Checksum mismatch",
-                        reason = "The downloaded proot binary does not match the pinned SHA-256.",
-                    ),
-                )
-                return
+                paths.prootBinary.setExecutable(true, false)
+            } else {
+                appendLog("proot bundled in APK — no download needed")
             }
             setStepStatus(InstallStep.VERIFY_CHECKSUM, StepStatus.Done)
 
@@ -175,11 +216,6 @@ class UbuntuInstaller(
             rootfsFile.delete()
             setStepStatus(InstallStep.EXTRACT_ROOTFS, StepStatus.Done)
 
-            // proot binary into runtime dir + exec bit
-            paths.runtimeDir.mkdirs()
-            prootFile.copyTo(paths.prootBinary, overwrite = true)
-            prootFile.delete()
-            paths.prootBinary.setExecutable(true, false)
             paths.ensureDirs()
 
             // Step 4 — initialize Ubuntu (resolv.conf, hostname, dirs)

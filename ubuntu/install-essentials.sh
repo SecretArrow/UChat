@@ -6,7 +6,7 @@ set -uo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 echo "[uchat] apt-get update"
-apt-get update -qq
+apt-get update -qq || exit 1
 
 echo "[uchat] installing essential packages"
 apt-get install -y --no-install-recommends \

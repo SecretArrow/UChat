@@ -9,9 +9,9 @@ check() {
   local label="$1"
   shift
   if command -v "$1" >/dev/null 2>&1; then
-    echo "[health] ok: $label ($("$@" 2>/dev/null | head -n 1))"
+    echo "[h[uchat] ok: $label ($("$@" 2>/dev/null | head -n 1))"
   else
-    echo "[health] MISSING: $label"
+    echo "[h[uchat] MISSING: $label"
     FAILED=1
   fi
 }
@@ -29,8 +29,8 @@ check "tmux" tmux -V
 uname -a
 
 if [ "$FAILED" -ne 0 ]; then
-  echo "[health] health check FAILED (missing components above are non-fatal for base usage but reported)"
+  echo "[h[uchat] health check FAILED (missing components above are non-fatal for base usage but reported)"
   exit 0
 fi
-echo "[health] all checks passed"
+echo "[h[uchat] all checks passed"
 exit 0

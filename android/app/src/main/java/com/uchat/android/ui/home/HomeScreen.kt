@@ -23,14 +23,15 @@ import androidx.compose.ui.unit.dp
 import com.uchat.android.R
 import com.uchat.android.core.format.Format
 import com.uchat.android.core.fs.UChatPaths
-import com.uchat.android.linux.install.InstallState
 import com.uchat.android.ui.components.StatCard
 
-/** Home dashboard (spec #36) — or the install wizard when Ubuntu is missing. */
+/**
+ * Home dashboard (spec #36). Shown once Ubuntu is installed; before that the install wizard owns
+ * the HOME tab (see AppRoot).
+ */
 @Composable
 fun HomeScreen(
     paths: UChatPaths,
-    installState: InstallState,
     runningProcesses: Int,
     projectCount: Int,
     networkConnected: Boolean,
@@ -39,17 +40,8 @@ fun HomeScreen(
     onLaunchClaude: () -> Unit,
     onOpenProjects: () -> Unit,
     onOpenFiles: () -> Unit,
-    onInstallStart: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (!paths.isUbuntuInstalled && !installState.running && !installState.finished) {
-        InstallEntryScreen(
-            paths = paths,
-            installState = installState,
-            onInstallStart = onInstallStart,
-        )
-        return
-    }
 
     Column(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -68,8 +60,6 @@ fun HomeScreen(
                 Text(
                     text =
                         when {
-                            installState.running ->
-                                stringResource(R.string.install_step_status_running)
                             paths.isUbuntuInstalled -> stringResource(R.string.home_status_running)
                             else -> stringResource(R.string.home_status_not_installed)
                         },
@@ -149,37 +139,5 @@ fun HomeScreen(
         }
 
         Spacer(Modifier.height(12.dp))
-    }
-}
-
-/** Compact welcome/install entry with the size preview summary. */
-@Composable
-private fun InstallEntryScreen(
-    paths: UChatPaths,
-    installState: InstallState,
-    onInstallStart: () -> Unit,
-) {
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(
-            stringResource(R.string.install_title),
-            style = MaterialTheme.typography.headlineMedium
-        )
-        Text(
-            stringResource(R.string.install_subtitle),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (installState.fatal != null || installState.paused) {
-            Text(
-                stringResource(R.string.install_resume_hint),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
-        Button(onClick = onInstallStart, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.install_start))
-        }
     }
 }

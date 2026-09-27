@@ -23,7 +23,7 @@ class RegistryTest {
           "arch": "arm64",
           "androidAbi": "arm64-v8a",
           "url": "https://example.com/ubuntu.tar.gz",
-          "sha256": "04207713ece899c3740823d33690441ad3a7f0ded1101aca744e2b0f37ac7ff2",
+          "sha256": "a91d5a93010193712d346d761372b7c9db6dfcf093893161c64ca107f05914f2",
           "sizeBytes": 29936675,
           "extractedBytes": 86000000,
           "minFreeBytes": 1500000000

@@ -40,15 +40,32 @@ class UChatPaths(context: Context) {
 
     val cacheDir: File = context.cacheDir
     val sharedDir: File? = context.getExternalFilesDir(null)
+    private val nativeLibDir: File? = context.applicationInfo?.nativeLibraryDir?.let { File(it) }
 
     val prootBinary: File
         get() = File(runtimeDir, "proot")
+
+    /**
+     * proot shipped inside the APK as libproot.so. The package manager extracts it into
+     * nativeLibraryDir, which — unlike the writable data dir — is EXECUTABLE on Android 10+ for
+     * apps targeting API 29+ (W^X policy). This is the only reliable way to exec proot.
+     */
+    val bundledProot: File?
+        get() = nativeLibDir?.let { libDir -> File(libDir, "libproot.so").takeIf { it.isFile } }
+
+    /**
+     * The proot binary to exec: the bundled one when present, the downloaded fallback otherwise.
+     */
+    val effectiveProotBinary: File
+        get() = bundledProot ?: prootBinary
 
     val scriptsDir: File
         get() = File(filesDir, "scripts")
 
     val isUbuntuInstalled: Boolean
-        get() = File(ubuntuRoot, "bin/bash").isFile && prootBinary.isFile
+        get() =
+            File(ubuntuRoot, "bin/bash").isFile &&
+                effectiveProotBinary.let { it.isFile && it.canExecute() }
 
     /** Creates the whole layout; safe to call repeatedly. */
     fun ensureDirs() {

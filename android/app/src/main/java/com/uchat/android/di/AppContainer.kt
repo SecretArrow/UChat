@@ -51,7 +51,8 @@ class AppContainer(context: Context) {
             appScope,
             outputTap = { sessionId, bytes, length -> replayCache.offer(sessionId, bytes, length) }
         )
-    val installer: UbuntuInstaller = UbuntuInstaller(paths, assetRegistry, appScope)
+    val installer: UbuntuInstaller =
+        UbuntuInstaller(paths, assetRegistry, appScope, bundledProot = { paths.bundledProot })
 
     val shell: Shell by lazy { Shell(paths, abi) }
 

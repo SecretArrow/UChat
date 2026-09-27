@@ -32,13 +32,21 @@ data class AssetRegistry(
     fun prootFor(abi: DeviceAbi): AssetEntry? =
         proot.firstOrNull { it.androidAbi == abi.androidAbi }
 
-    /** Total bytes that must be free on disk before starting an install (spec #69). */
-    fun installRequirementFor(abi: DeviceAbi): InstallRequirement? {
+    /**
+     * Total bytes that must be free on disk before starting an install (spec #69). When the proot
+     * binary is bundled inside the APK ([prootBundled] = true) it is not downloaded, so the
+     * download/extract sizes shrink to the rootfs only.
+     */
+    fun installRequirementFor(abi: DeviceAbi, prootBundled: Boolean = false): InstallRequirement? {
         val rootfs = rootfsFor(abi) ?: return null
-        val proot = prootFor(abi) ?: return null
-        val downloadBytes = rootfs.sizeBytes + proot.sizeBytes
-        val extractedBytes = rootfs.extractedBytes + proot.extractedBytes
-        val minFree = maxOf(rootfs.minFreeBytes, proot.minFreeBytes)
+        val proot = prootFor(abi)
+        if (!prootBundled && proot == null) return null
+        val prootSize = if (prootBundled) 0L else (proot?.sizeBytes ?: 0L)
+        val prootExtracted = if (prootBundled) 0L else (proot?.extractedBytes ?: 0L)
+        val minProot = if (prootBundled) 0L else (proot?.minFreeBytes ?: 0L)
+        val downloadBytes = rootfs.sizeBytes + prootSize
+        val extractedBytes = rootfs.extractedBytes + prootExtracted
+        val minFree = maxOf(rootfs.minFreeBytes, minProot)
         return InstallRequirement(
             downloadBytes = downloadBytes,
             extractedBytes = extractedBytes,
