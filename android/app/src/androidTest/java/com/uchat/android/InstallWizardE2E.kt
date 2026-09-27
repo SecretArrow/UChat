@@ -72,6 +72,18 @@ class InstallWizardE2E {
             }
 
         if (!reacted) {
+            // Diagnose: read the installer's REAL state through the app container so the failure
+            // message separates a wiring regression (callback never fired / state never moved)
+            // from a rendering problem (state moved but UI didn't show it).
+            val app = composeRule.activity.application as com.uchat.android.UChatApp
+            val installState = app.container.installer.state.value
+            val summary =
+                "running=${installState.running} paused=${installState.paused} " +
+                    "currentStep=${installState.currentStep} fatal=${installState.fatal} " +
+                    "statuses={" +
+                    installState.statuses.entries.joinToString(", ") { "${it.key}=${it.value}" } +
+                    "}"
+
             // If the Start button is disabled (emulator storage below the pinned requirement) the
             // tap cannot trigger anything — an environment limitation, not a wiring regression.
             // In that case the wizard MUST still show the storage shortfall warning.
@@ -85,7 +97,7 @@ class InstallWizardE2E {
             if (startEnabled) {
                 fail(
                     "Install tap produced no visible state (running/pause/cancel/error) — " +
-                        "wizard wiring regression",
+                        "wizard wiring regression. Installer state: $summary",
                 )
             }
             assertTrue(

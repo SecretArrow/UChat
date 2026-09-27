@@ -104,8 +104,20 @@ class ProotExecE2E {
         val process =
             ProcessBuilder(
                     proot.absolutePath,
+                    // Mirror the production invocation shape (Proot.argv): explicit rootfs + binds.
+                    // Termux proot does not default to / the way upstream does, so -r is required.
+                    "-r",
+                    "/",
+                    "-b",
+                    "/dev",
+                    "-b",
+                    "/proc",
+                    "-b",
+                    "/sys",
                     "--kill-on-exit",
                     "-0",
+                    "-w",
+                    "/",
                     "/system/bin/sh",
                     "-c",
                     "echo $marker && id -u",
