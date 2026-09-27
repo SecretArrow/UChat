@@ -41,7 +41,8 @@ object Proot {
         // is missing") and burned the user's data plan with rootfs re-downloads on each retry.
         require(paths.isUbuntuBootstrapped) {
             val missing = buildList {
-                if (!File(paths.ubuntuRoot, "bin/bash").isFile) add("/bin/bash (rootfs not extracted)")
+                if (!File(paths.ubuntuRoot, "bin/bash").isFile)
+                    add("/bin/bash (rootfs not extracted)")
                 val proot = paths.effectiveProotBinary
                 if (!proot.isFile || !proot.canExecute()) add("proot (${proot.absolutePath})")
             }

@@ -202,7 +202,10 @@ class UbuntuInstaller(
                             AppError(
                                 title = strings.get(R.string.installer_error_network_title),
                                 reason =
-                                    strings.get(R.string.installer_error_network_reason, rootfsEntry.url),
+                                    strings.get(
+                                        R.string.installer_error_network_reason,
+                                        rootfsEntry.url
+                                    ),
                             ),
                         )
                         return
@@ -247,7 +250,8 @@ class UbuntuInstaller(
                         InstallStep.VERIFY_CHECKSUM,
                         AppError(
                             title = strings.get(R.string.installer_error_checksum_title),
-                            reason = strings.get(R.string.installer_error_checksum_reason, "rootfs"),
+                            reason =
+                                strings.get(R.string.installer_error_checksum_reason, "rootfs"),
                         ),
                     )
                     return
@@ -260,7 +264,8 @@ class UbuntuInstaller(
                             InstallStep.VERIFY_CHECKSUM,
                             AppError(
                                 title = strings.get(R.string.installer_error_checksum_title),
-                                reason = strings.get(R.string.installer_error_checksum_reason, "proot"),
+                                reason =
+                                    strings.get(R.string.installer_error_checksum_reason, "proot"),
                             ),
                         )
                         return
@@ -454,9 +459,11 @@ class UbuntuInstaller(
     /** Restores the failed step from a previous process (plain file, survives process death). */
     private fun restoreResumableStep(): InstallStep? {
         val id = paths.loadInstallResume() ?: return null
-        return InstallStep.ordered().firstOrNull { it.id == id }?.also {
-            appendLog("restored resume state from a previous run: failed at step ${it.id}")
-        }
+        return InstallStep.ordered()
+            .firstOrNull { it.id == id }
+            ?.also {
+                appendLog("restored resume state from a previous run: failed at step ${it.id}")
+            }
     }
 
     private suspend fun downloadAsset(

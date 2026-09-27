@@ -85,10 +85,10 @@ class UChatPaths(context: Context) {
 
     /**
      * The environment can EXECUTE proot commands (bash + proot present) but is not necessarily
-     * fully installed yet. This is exactly the state the installer's own steps 5-9 run in —
-     * they must never be gated on the step-10 ready marker. Regression: v1.5.0 gated
-     * Proot.argv on isUbuntuInstalled, so step 5 crashed with "rootfs or proot binary is
-     * missing" on every real device, and every retry re-downloaded the rootfs.
+     * fully installed yet. This is exactly the state the installer's own steps 5-9 run in — they
+     * must never be gated on the step-10 ready marker. Regression: v1.5.0 gated Proot.argv on
+     * isUbuntuInstalled, so step 5 crashed with "rootfs or proot binary is missing" on every real
+     * device, and every retry re-downloaded the rootfs.
      */
     val isUbuntuBootstrapped: Boolean
         get() = isBootstrapped(ubuntuRoot, effectiveProotBinary)
@@ -125,8 +125,7 @@ class UChatPaths(context: Context) {
     fun clearInstallResume() {
         try {
             installResumeFile.delete()
-        } catch (_: Exception) {
-        }
+        } catch (_: Exception) {}
     }
 
     /** Reads the persisted failed step id, or null when absent/corrupt. */
@@ -161,9 +160,9 @@ class UChatPaths(context: Context) {
 
     companion object {
         /**
-         * Pure bootstrap decision (unit-testable, no Android context): /bin/bash is present AND
-         * an executable proot binary is available. Deliberately marker-free — the installer runs
-         * proot commands between extraction (step 3) and completion (step 10).
+         * Pure bootstrap decision (unit-testable, no Android context): /bin/bash is present AND an
+         * executable proot binary is available. Deliberately marker-free — the installer runs proot
+         * commands between extraction (step 3) and completion (step 10).
          */
         fun isBootstrapped(ubuntuRoot: File, proot: File?): Boolean =
             File(ubuntuRoot, "bin/bash").isFile &&

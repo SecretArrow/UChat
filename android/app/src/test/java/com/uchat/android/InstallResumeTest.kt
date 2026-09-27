@@ -2,7 +2,6 @@ package com.uchat.android
 
 import com.uchat.android.linux.install.InstallResume
 import com.uchat.android.linux.install.InstallStep
-import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -10,8 +9,8 @@ import org.junit.Test
 
 /**
  * Resume-plan tests: retries must NEVER repeat completed installer work. Regression context —
- * v1.5.0 re-downloaded the whole rootfs on every retry, even when the failure was at step 5+
- * and the rootfs was already extracted, burning the user's metered data plan.
+ * v1.5.0 re-downloaded the whole rootfs on every retry, even when the failure was at step 5+ and
+ * the rootfs was already extracted, burning the user's metered data plan.
  */
 class InstallResumeTest {
 
@@ -33,18 +32,19 @@ class InstallResumeTest {
     @Test
     fun `failure at apt steps or later skips the archive pipeline when rootfs exists`() {
         listOf(
-            InstallStep.INITIALIZE_UBUNTU,
-            InstallStep.INSTALL_ESSENTIALS,
-            InstallStep.INSTALL_RUNTIMES,
-            InstallStep.INSTALL_OPENCODE,
-            InstallStep.INSTALL_CLAUDE,
-            InstallStep.HEALTH_CHECK,
-        ).forEach { step ->
-            val d = decide(step, archive = false, bash = true)
-            assertTrue("step ${step.id} should skip the archive", d.skipArchive)
-            assertFalse(d.reuseArchive)
-            assertEquals(step, d.fromStep)
-        }
+                InstallStep.INITIALIZE_UBUNTU,
+                InstallStep.INSTALL_ESSENTIALS,
+                InstallStep.INSTALL_RUNTIMES,
+                InstallStep.INSTALL_OPENCODE,
+                InstallStep.INSTALL_CLAUDE,
+                InstallStep.HEALTH_CHECK,
+            )
+            .forEach { step ->
+                val d = decide(step, archive = false, bash = true)
+                assertTrue("step ${step.id} should skip the archive", d.skipArchive)
+                assertFalse(d.reuseArchive)
+                assertEquals(step, d.fromStep)
+            }
     }
 
     @Test

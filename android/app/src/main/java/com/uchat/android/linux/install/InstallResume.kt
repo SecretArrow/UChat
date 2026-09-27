@@ -12,7 +12,9 @@ object InstallResume {
 
     /** What runInstall should do about the archive pipeline (steps 1-3). */
     data class Decision(
-        /** true = the rootfs is already extracted on disk; skip download+verify+extract entirely. */
+        /**
+         * true = the rootfs is already extracted on disk; skip download+verify+extract entirely.
+         */
         val skipArchive: Boolean,
         /** true = a fully downloaded archive exists; skip the download but still verify+extract. */
         val reuseArchive: Boolean,
@@ -30,11 +32,13 @@ object InstallResume {
         archiveExists: Boolean,
         rootfsHasBash: Boolean,
     ): Decision {
-        val failed = resumable ?: return Decision(
-            skipArchive = false,
-            reuseArchive = false,
-            fromStep = InstallStep.DOWNLOAD_ROOTFS,
-        )
+        val failed =
+            resumable
+                ?: return Decision(
+                    skipArchive = false,
+                    reuseArchive = false,
+                    fromStep = InstallStep.DOWNLOAD_ROOTFS,
+                )
         return when {
             // Failures at step 4+ mean the archive was fully extracted before the crash —
             // repeating steps 1-3 would only waste bandwidth and disk I/O.
@@ -47,7 +51,11 @@ object InstallResume {
             // The Downloader itself resumes partial downloads byte-wise, so even a step-1
             // restart continues from what already reached the disk.
             else ->
-                Decision(skipArchive = false, reuseArchive = false, fromStep = InstallStep.DOWNLOAD_ROOTFS)
+                Decision(
+                    skipArchive = false,
+                    reuseArchive = false,
+                    fromStep = InstallStep.DOWNLOAD_ROOTFS
+                )
         }
     }
 }
