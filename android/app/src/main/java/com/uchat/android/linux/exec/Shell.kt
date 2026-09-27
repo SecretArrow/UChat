@@ -47,8 +47,8 @@ class Shell(private val paths: UChatPaths, private val abi: DeviceAbi) {
         workingDir: String = Proot.UBUNTU_HOME,
         timeoutSeconds: Long = 300,
         env: Map<String, String> = emptyMap(),
-        onLine: ((String) -> Unit)? = null,
         pauseRequested: (() -> Boolean)? = null,
+        onLine: ((String) -> Unit)? = null,
     ): ExecResult =
         withContext(Dispatchers.IO) {
             val argv = Proot.argv(paths, abi, command)
@@ -133,12 +133,13 @@ class Shell(private val paths: UChatPaths, private val abi: DeviceAbi) {
             ExecResult(process.exitValue(), stdout.toString(), stderr.toString())
         }
 
-    /** Runs a shell script from the UChat scripts bind (path is inside Ubuntu). */
+    /** Runs a shell script from the UChat scripts bind (path is inside Ubuntu). [onLine]
+     *  stays the LAST parameter so existing trailing-lambda call sites keep compiling. */
     suspend fun runScript(
         scriptNameInUbuntu: String,
         timeoutSeconds: Long = 1800,
-        onLine: ((String) -> Unit)? = null,
         pauseRequested: (() -> Boolean)? = null,
+        onLine: ((String) -> Unit)? = null,
     ): ExecResult =
         exec(
             listOf("/bin/bash", "-c", "bash $scriptNameInUbuntu"),
