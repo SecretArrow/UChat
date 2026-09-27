@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.HideSource
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -309,7 +310,7 @@ private fun HeaderMenu(
     var open by remember { mutableStateOf(false) }
     IconButton(onClick = { open = true }) {
         Icon(
-            androidx.compose.material.icons.Icons.Filled.MoreVert,
+            Icons.Filled.MoreVert,
             contentDescription = null,
         )
     }

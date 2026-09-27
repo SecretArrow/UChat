@@ -1,0 +1,16 @@
+# Gitleaks configuration for UChat.
+#
+# The vendored terminal bundles under assets/terminal/ are minified third-party
+# JavaScript (xterm.js). Minified identifiers such as `FourKeyMap`/`REDACTED`-style
+# class names trip generic secret rules — they are code, not credentials.
+# Keep default rules for everything else.
+title = "UChat gitleaks allowlist"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Vendored third-party minified bundles"
+paths = [
+    '''android/app/src/main/assets/terminal/[a-z0-9._-]*\.js$''',
+]
