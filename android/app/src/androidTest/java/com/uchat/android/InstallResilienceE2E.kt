@@ -89,7 +89,7 @@ class InstallResilienceE2E {
         assertEquals(
             "journal must be cleared after recovery",
             emptyList<String>(),
-            dpkgUpdates.listFiles()?.map { it.name } ?: emptyList(),
+            dpkgUpdates.listFiles()?.map { it.name } ?: emptyList<String>(),
         )
         assertFalse("stale lock-frontend must be removed", lockFront.exists())
         assertFalse("stale lock must be removed", lock.exists())
@@ -104,7 +104,7 @@ class InstallResilienceE2E {
         assertEquals(
             "corrupt journal must be cleared",
             emptyList<String>(),
-            dpkgUpdates.listFiles()?.map { it.name } ?: emptyList(),
+            dpkgUpdates.listFiles()?.map { it.name } ?: emptyList<String>(),
         )
 
         // --- After healing, dpkg must consider the database consistent (no pending actions).
