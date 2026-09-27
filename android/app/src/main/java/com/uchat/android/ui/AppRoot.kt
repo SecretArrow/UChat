@@ -428,6 +428,9 @@ fun AppRoot(container: AppContainer) {
                     onFontSizeChange = { size ->
                         scope.launch { container.settingsRepository.setTerminalFontSize(size) }
                     },
+                    onThemeModeChange = { mode ->
+                        scope.launch { container.settingsRepository.setAppThemeMode(mode) }
+                    },
                     onRestoreRebootChange = { enabled ->
                         scope.launch { container.settingsRepository.setRestoreAfterReboot(enabled) }
                     },

@@ -3,14 +3,19 @@ package com.uchat.android.terminal.emulator
 /**
  * Terminal color system: the 16-color ANSI palette, the 256-color xterm cube and default
  * foreground/background. Colors are stored as packed ARGB ints for fast rendering.
+ *
+ * The defaults (bg/fg/cursor/selection + the 16-color palette) are scheme-aware so the whole
+ * terminal follows the app's dark/light theme ([applyLightScheme]). The renderer and the
+ * emulator only ever read these vars at draw time, so switching scheme takes effect on the
+ * next frame without touching the buffer.
  */
 object TerminalColors {
 
     const val DEFAULT_FG = 256
     const val DEFAULT_BG = 257
 
-    /** JuiceSSH-inspired dark theme palette (0..15). */
-    val PALETTE_16 =
+    /** JuiceSSH-inspired dark palette (0..15). */
+    private val DARK_PALETTE_16 =
         intArrayOf(
             0xFF14161E.toInt(), // 0 black
             0xFFE3567A.toInt(), // 1 red
@@ -30,13 +35,80 @@ object TerminalColors {
             0xFFF7F9FC.toInt(), // 15 bright white
         )
 
-    const val CURSOR_COLOR = 0xFF7DEBC2.toInt()
-    const val SELECTION_COLOR = 0xFF2C4A66.toInt()
+    /**
+     * Light palette: hues kept, luminance rebalanced so every ANSI color stays readable on a
+     * near-white background ("white"/bright white become mid-grays instead of invisible white).
+     */
+    private val LIGHT_PALETTE_16 =
+        intArrayOf(
+            0xFF242933.toInt(), // 0 black
+            0xFFC93A5B.toInt(), // 1 red
+            0xFF1F9E77.toInt(), // 2 green
+            0xFFB07A1F.toInt(), // 3 yellow
+            0xFF3D6FBF.toInt(), // 4 blue
+            0xFF9A4FC6.toInt(), // 5 magenta
+            0xFF1F8FA6.toInt(), // 6 cyan
+            0xFF5B6270.toInt(), // 7 white
+            0xFF565E6E.toInt(), // 8 bright black
+            0xFFD94164.toInt(), // 9 bright red
+            0xFF12855E.toInt(), // 10 bright green
+            0xFF96660D.toInt(), // 11 bright yellow
+            0xFF2E62D9.toInt(), // 12 bright blue
+            0xFF8B3DD9.toInt(), // 13 bright magenta
+            0xFF127896.toInt(), // 14 bright cyan
+            0xFF3B4051.toInt(), // 15 bright white
+        )
 
-    /** Default screen colors. */
-    const val BG_DEFAULT = 0xFF0C0E14.toInt()
-    const val FG_DEFAULT = 0xFFE6E9F0.toInt()
-    const val BG_ALT_DEFAULT = 0xFF0C0E14.toInt()
+    @Volatile var PALETTE_16: IntArray = DARK_PALETTE_16
+        private set
+
+    @Volatile var CURSOR_COLOR: Int = DARK_CURSOR_COLOR
+        private set
+
+    @Volatile var SELECTION_COLOR: Int = DARK_SELECTION_COLOR
+        private set
+
+    /** Default screen colors — scheme-aware (see [applyLightScheme]). */
+    @Volatile var BG_DEFAULT: Int = DARK_BG_DEFAULT
+        private set
+
+    @Volatile var FG_DEFAULT: Int = DARK_FG_DEFAULT
+        private set
+
+    @Volatile var BG_ALT_DEFAULT: Int = DARK_BG_DEFAULT
+        private set
+
+    private const val DARK_CURSOR_COLOR = 0xFF7DEBC2.toInt()
+    private const val DARK_SELECTION_COLOR = 0xFF2C4A66.toInt()
+    private const val DARK_BG_DEFAULT = 0xFF0C0E14.toInt()
+    private const val DARK_FG_DEFAULT = 0xFFE6E9F0.toInt()
+
+    private const val LIGHT_CURSOR_COLOR = 0xFF0F8A62.toInt()
+    private const val LIGHT_SELECTION_COLOR = 0xFFBFD9F2.toInt()
+    private const val LIGHT_BG_DEFAULT = 0xFFF7F8FA.toInt()
+    private const val LIGHT_FG_DEFAULT = 0xFF1C2030.toInt()
+
+    /**
+     * Switch the default screen colors + 16-color palette between the dark and light terminal
+     * scheme. Called from composition whenever the app theme changes; safe to call repeatedly.
+     */
+    fun applyLightScheme(light: Boolean) {
+        if (light) {
+            PALETTE_16 = LIGHT_PALETTE_16
+            CURSOR_COLOR = LIGHT_CURSOR_COLOR
+            SELECTION_COLOR = LIGHT_SELECTION_COLOR
+            BG_DEFAULT = LIGHT_BG_DEFAULT
+            FG_DEFAULT = LIGHT_FG_DEFAULT
+            BG_ALT_DEFAULT = LIGHT_BG_DEFAULT
+        } else {
+            PALETTE_16 = DARK_PALETTE_16
+            CURSOR_COLOR = DARK_CURSOR_COLOR
+            SELECTION_COLOR = DARK_SELECTION_COLOR
+            BG_DEFAULT = DARK_BG_DEFAULT
+            FG_DEFAULT = DARK_FG_DEFAULT
+            BG_ALT_DEFAULT = DARK_BG_DEFAULT
+        }
+    }
 
     private val cubeColors = IntArray(240)
 

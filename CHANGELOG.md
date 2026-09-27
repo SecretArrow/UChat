@@ -3,6 +3,27 @@
 All notable changes to UChat are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [SemVer](https://semver.org/).
 
+## [1.3.1] - 2026-09-27
+
+### Fixed
+- Terminal cursor now sits exactly where the app expects it:
+  - DECSCUSR mapping corrected — a steady-block request (CSI 3 q, used by
+    Neovim/tmux/fish) was drawn as an UNDERLINE, making the cursor look
+    vertically misplaced; underline/bar/block shapes now follow the spec
+  - Steady cursor shapes (3/5/7) no longer blink, so the cursor stops
+    appearing to jump around in apps that request a steady cursor
+  - The cursor block now spans both cells of a wide (CJK/emoji) character and
+    snaps back to the glyph's head cell instead of covering half a character
+
+### Added
+- Dark/Light theme for the whole app (Settings → Theme: System/Dark/Light):
+  - Brand Material schemes for both modes (no device-dependent dynamic color)
+  - Terminal chrome (tabs, toolbars, editor, settings) follows the theme
+  - The terminal canvas itself switches to a light palette — ANSI colors
+    rebalanced for readability on a near-white background
+  - Status/navigation bar icons re-tint on theme change to stay readable
+  - Persisted in DataStore; survives restarts
+
 ## [1.3.0] - 2026-09-27
 
 ### Fixed

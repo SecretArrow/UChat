@@ -159,6 +159,18 @@ class TerminalController(
     }
 
     /**
+     * Force the renderer to repaint without touching the buffer — used when a global visual
+     * input changes outside the emulator (e.g. the app theme switches the terminal palette).
+     * Only change detection matters (draw reads it inside the draw pass), so a plain bump
+     * of the private counter is enough.
+     */
+    fun requestRedraw() {
+        renderTick = buffer.generation + (++extraTicks)
+    }
+
+    private var extraTicks = 0L
+
+    /**
      * Search the visible history for [query]. [forward] = towards newer output. Returns true on a
      * hit and stores the absolute row in [searchHit] for the renderer to scroll to and highlight.
      */

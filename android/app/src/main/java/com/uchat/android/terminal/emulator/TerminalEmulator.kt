@@ -359,11 +359,15 @@ class TerminalEmulator(
         if (csiIntermediates.isNotEmpty()) {
             when (final) {
                 'q' -> {
-                    // DECSCUSR: space;q → cursor shape 0..6.
+                    // DECSCUSR: CSI Ps SP q — 0/1 default (blinking block), 2 blink block,
+                    // 3 steady block, 4 blink underline, 5 steady underline, 6 blink bar,
+                    // 7 steady bar. Steady shapes must never blink (renderer reads
+                    // [cursorShapeBlinks]); mis-mapping here made steady-block apps show an
+                    // underline cursor, which reads as "the cursor sits in the wrong place".
                     val shape = param(0, 0)
                     cursorShape =
                         when {
-                            csiIntermediates.contains(' ') && shape in 2..6 -> shape
+                            csiIntermediates.contains(' ') && shape in 2..7 -> shape
                             else -> 0
                         }
                 }
@@ -445,9 +449,23 @@ class TerminalEmulator(
         }
     }
 
-    /** Cursor shape: 0/1 default block, 2 block, 3/4 underline, 5/6 bar. */
+    /**
+     * DECSCUSR cursor shape: 0/1 default (blinking block), 2 blink block, 3 steady block,
+     * 4 blink underline, 5 steady underline, 6 blink bar, 7 steady bar.
+     */
     var cursorShape: Int = 0
         private set
+
+    /**
+     * Whether the active DECSCUSR shape is a blinking variant. Steady shapes (3/5/7) never
+     * blink — ignoring this made the cursor visibly jump/hide under apps like Neovim, fish
+     * and tmux that request a steady cursor.
+     */
+    fun cursorShapeBlinks(): Boolean =
+        when (cursorShape) {
+            3, 5, 7 -> false
+            else -> true
+        }
 
     private fun repeatLastChar(n: Int) {
         val last = lastWritten ?: return

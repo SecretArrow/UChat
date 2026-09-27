@@ -443,4 +443,59 @@ class TerminalEmulatorTest {
         val t = Term()
         assertNull(t.buffer.lineAt(-1))
     }
+
+    // ------------------------------------------------------------ cursor shape (DECSCUSR)
+
+    @Test
+    fun `decscusr maps block underline and bar shapes`() {
+        val t = Term()
+        // Steady block (3) must be a BLOCK, not an underline — the old mapping drew it as an
+        // underline which made the cursor look vertically misplaced.
+        t.feed("\u001b[3 q")
+        assertEquals(3, t.emulator.cursorShape)
+        t.feed("\u001b[5 q")
+        assertEquals(5, t.emulator.cursorShape)
+        t.feed("\u001b[7 q")
+        assertEquals(7, t.emulator.cursorShape)
+        t.feed("\u001b[2 q")
+        assertEquals(2, t.emulator.cursorShape)
+        // Reset to default.
+        t.feed("\u001b[0 q")
+        assertEquals(0, t.emulator.cursorShape)
+    }
+
+    @Test
+    fun `decscusr without space intermediate is ignored`() {
+        val t = Term()
+        t.feed("\u001b[3q") // no space → not DECSCUSR
+        assertEquals(0, t.emulator.cursorShape)
+    }
+
+    @Test
+    fun `steady shapes never blink blinking shapes do`() {
+        val t = Term()
+        t.feed("\u001b[3 q") // steady block
+        assertFalse(t.emulator.cursorShapeBlinks())
+        t.feed("\u001b[5 q") // steady underline
+        assertFalse(t.emulator.cursorShapeBlinks())
+        t.feed("\u001b[7 q") // steady bar
+        assertFalse(t.emulator.cursorShapeBlinks())
+        t.feed("\u001b[2 q") // blink block
+        assertTrue(t.emulator.cursorShapeBlinks())
+        t.feed("\u001b[4 q") // blink underline
+        assertTrue(t.emulator.cursorShapeBlinks())
+        t.feed("\u001b[6 q") // blink bar
+        assertTrue(t.emulator.cursorShapeBlinks())
+        t.feed("\u001b[0 q") // default = blinking block
+        assertTrue(t.emulator.cursorShapeBlinks())
+    }
+
+    @Test
+    fun `wide char lands on two cells and cursor stays on head`() {
+        val t = Term(cols = 10, rows = 4)
+        t.feed("한")
+        // Wide char occupies two cells: base char + continuation.
+        assertTrue(t.buffer.isContinuationCell(t.buffer.currentScreen[0].chars[1]))
+        assertEquals(2, t.buffer.cursorCol)
+    }
 }

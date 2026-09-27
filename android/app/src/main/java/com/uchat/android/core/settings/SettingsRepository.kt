@@ -22,6 +22,13 @@ enum class ToolbarPosition {
     BOTTOM
 }
 
+/** App-wide color theme chosen by the user (spec: dark/light theme feature). */
+enum class AppThemeMode {
+    SYSTEM,
+    DARK,
+    LIGHT
+}
+
 /** User-controlled behaviour of UChat (spec #47) + terminal UI customization. */
 data class UChatSettings(
     val terminalFontSize: Int = 14,
@@ -45,6 +52,8 @@ data class UChatSettings(
     val terminalFitScreen: Boolean = true,
     val terminalFixedCols: Int = 80,
     val terminalFixedRows: Int = 24,
+    // App theme: follow the OS or force dark/light (user requirement).
+    val appThemeMode: AppThemeMode = AppThemeMode.SYSTEM,
 )
 
 class SettingsRepository(private val context: Context) {
@@ -69,6 +78,7 @@ class SettingsRepository(private val context: Context) {
         val FIT_SCREEN = booleanPreferencesKey("terminal_fit_screen")
         val FIXED_COLS = intPreferencesKey("terminal_fixed_cols")
         val FIXED_ROWS = intPreferencesKey("terminal_fixed_rows")
+        val APP_THEME_MODE = stringPreferencesKey("app_theme_mode")
         val FONT_SCALE = floatPreferencesKey("unused_placeholder")
     }
 
@@ -100,6 +110,10 @@ class SettingsRepository(private val context: Context) {
                 terminalFitScreen = p[Keys.FIT_SCREEN] ?: true,
                 terminalFixedCols = p[Keys.FIXED_COLS] ?: 80,
                 terminalFixedRows = p[Keys.FIXED_ROWS] ?: 24,
+                appThemeMode =
+                    p[Keys.APP_THEME_MODE]?.let { saved ->
+                        runCatching { AppThemeMode.valueOf(saved) }.getOrNull()
+                    } ?: AppThemeMode.SYSTEM,
             )
         }
 
@@ -177,5 +191,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setTerminalFixedRows(rows: Int) {
         context.dataStore.edit { it[Keys.FIXED_ROWS] = rows.coerceIn(10, 100) }
+    }
+
+    suspend fun setAppThemeMode(mode: AppThemeMode) {
+        context.dataStore.edit { it[Keys.APP_THEME_MODE] = mode.name }
     }
 }

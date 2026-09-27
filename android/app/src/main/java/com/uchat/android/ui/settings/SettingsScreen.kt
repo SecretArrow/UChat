@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
@@ -21,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.uchat.android.R
 import com.uchat.android.core.format.Format
 import com.uchat.android.core.fs.UChatPaths
+import com.uchat.android.core.settings.AppThemeMode
 import com.uchat.android.core.settings.UChatSettings
 
 /** Settings (spec #47 subset) with storage overview and reset. */
@@ -31,6 +33,7 @@ fun SettingsScreen(
     ubuntuBytes: Long,
     workspaceBytes: Long,
     onFontSizeChange: (Int) -> Unit,
+    onThemeModeChange: (AppThemeMode) -> Unit,
     onRestoreRebootChange: (Boolean) -> Unit,
     onPersistentNotificationChange: (Boolean) -> Unit,
     onCleanup: () -> Unit,
@@ -45,6 +48,42 @@ fun SettingsScreen(
             stringResource(R.string.settings_title),
             style = MaterialTheme.typography.headlineMedium
         )
+
+        Card(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+            Column(Modifier.padding(16.dp)) {
+                Text(
+                    stringResource(R.string.settings_theme),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                androidx.compose.foundation.layout.Row(
+                    Modifier.fillMaxWidth().padding(top = 8.dp)
+                ) {
+                    AppThemeMode.entries.forEachIndexed { index, mode ->
+                        FilterChip(
+                            selected = settings.appThemeMode == mode,
+                            onClick = { onThemeModeChange(mode) },
+                            label = {
+                                Text(
+                                    stringResource(
+                                        when (mode) {
+                                            AppThemeMode.SYSTEM -> R.string.theme_system
+                                            AppThemeMode.DARK -> R.string.theme_dark
+                                            AppThemeMode.LIGHT -> R.string.theme_light
+                                        }
+                                    )
+                                )
+                            },
+                            modifier = Modifier.padding(end = if (index < AppThemeMode.entries.size - 1) 8.dp else 0.dp),
+                        )
+                    }
+                }
+                Text(
+                    stringResource(R.string.settings_theme_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+        }
 
         Card(Modifier.fillMaxWidth().padding(top = 12.dp)) {
             Column(Modifier.padding(16.dp)) {

@@ -55,6 +55,7 @@ import com.uchat.android.terminal.TerminalController
 import com.uchat.android.terminal.emulator.TerminalBuffer
 import com.uchat.android.terminal.emulator.TerminalColors
 import com.uchat.android.terminal.emulator.TerminalEmulator
+import com.uchat.android.terminal.emulator.WcWidth
 import com.uchat.android.terminal.input.KeyHandler
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -623,44 +624,61 @@ private fun drawCursor(
     val buffer = controller.buffer
     val cursorScreenRow = buffer.absoluteRowOf(buffer.cursorRow) - viewportTop
     if (cursorScreenRow < 0 || cursorScreenRow >= buffer.rows) return
-    if (hasFocus && !cursorOn && emulator.cursorBlinking) return
+    // Blink only when the app allows blinking AND the active DECSCUSR shape is a blinking
+    // variant — steady shapes (3/5/7) must stay solid or the cursor appears to jump around.
+    if (hasFocus && !cursorOn && emulator.cursorBlinking && emulator.cursorShapeBlinks()) return
 
     val cols = buffer.cols
     val cellW = metrics.cellWidth
     val cellH = metrics.cellHeight
-    val cursorCol = buffer.cursorCol.coerceIn(0, cols - 1)
-    val cx = cursorCol * cellW
+    // Keep the block glued to the glyph it covers: a wide (CJK/emoji) char occupies two
+    // cells, and the cursor may park on its continuation half — snap back to the head cell
+    // and stretch the block over both cells so it never looks offset from the text.
+    val screenLine = buffer.currentScreen.getOrNull(buffer.cursorRow)
+    var anchorCol = buffer.cursorCol.coerceIn(0, cols - 1)
+    var blockW = cellW
+    if (screenLine != null && anchorCol < screenLine.chars.size) {
+        val under = screenLine.chars[anchorCol]
+        if (buffer.isContinuationCell(under) && anchorCol > 0) anchorCol--
+        val head = screenLine.chars[anchorCol]
+        if (!buffer.isContinuationCell(head)) {
+            val w = WcWidth.widthOf(head.toString())
+            if (w >= 2 && anchorCol + 1 < cols) blockW = cellW * 2f
+        }
+    }
+    val cx = anchorCol * cellW
     val cyTop = cursorScreenRow * cellH
 
     paint.style = if (hasFocus) Paint.Style.FILL else Paint.Style.STROKE
     paint.strokeWidth = 2f
     paint.color = TerminalColors.CURSOR_COLOR
+    // DECSCUSR mapping: 4/5 underline, 6/7 bar, everything else (0..3) is a block.
     when (emulator.cursorShape) {
-        3,
-        4 -> canvas.drawRect(cx, cyTop + cellH - cellH / 5f, cx + cellW, cyTop + cellH, paint)
-        5,
-        6 -> canvas.drawRect(cx, cyTop, cx + cellW / 5f, cyTop + cellH, paint)
-        else -> canvas.drawRect(cx, cyTop, cx + cellW, cyTop + cellH, paint)
+        4,
+        5 -> canvas.drawRect(cx, cyTop + cellH - cellH / 5f, cx + blockW, cyTop + cellH, paint)
+        6,
+        7 -> canvas.drawRect(cx, cyTop, cx + (cellW / 5f).coerceAtLeast(2f), cyTop + cellH, paint)
+        else -> canvas.drawRect(cx, cyTop, cx + blockW, cyTop + cellH, paint)
     }
 
     if (!hasFocus) return
-    val line = buffer.currentScreen.getOrNull(buffer.cursorRow) ?: return
-    if (cursorCol >= line.chars.size) return
-    val ch = line.chars[cursorCol]
+    if (screenLine == null) return
+    if (anchorCol >= screenLine.chars.size) return
+    val ch = screenLine.chars[anchorCol]
     if (buffer.isContinuationCell(ch) || BoxDrawing.handles(ch)) return
     val glyph =
         if (
             Character.isHighSurrogate(ch) &&
-                cursorCol + 1 < line.chars.size &&
-                Character.isLowSurrogate(line.chars[cursorCol + 1])
+                anchorCol + 1 < screenLine.chars.size &&
+                Character.isLowSurrogate(screenLine.chars[anchorCol + 1])
         ) {
-            "" + ch + line.chars[cursorCol + 1]
+            "" + ch + screenLine.chars[anchorCol + 1]
         } else {
             ch.toString()
         }
     paint.style = Paint.Style.FILL
     paint.color = run {
-        val cellBg = TerminalBuffer.Attr.bg(line.styles[cursorCol])
+        val cellBg = TerminalBuffer.Attr.bg(screenLine.styles[anchorCol])
         if (cellBg == TerminalColors.DEFAULT_BG) TerminalColors.BG_DEFAULT
         else resolveColor(cellBg, controller)
     }

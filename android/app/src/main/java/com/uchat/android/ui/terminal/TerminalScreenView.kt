@@ -132,6 +132,10 @@ fun TerminalScreenView(
     LaunchedEffect(settings.terminalScrollbackLines) {
         controller.buffer.scrollbackMax = settings.terminalScrollbackLines
     }
+    // The terminal canvas reads its palette at draw time (TerminalColors), which is invisible
+    // to Compose — nudge one repaint whenever the dark/light scheme flips so the whole window
+    // recolors immediately instead of waiting for the next output burst.
+    LaunchedEffect(TerminalPalette.isLight) { controller.requestRedraw() }
 
     val atBottom = controller.atBottom
     var layoutMenuOpen by remember { mutableStateOf(false) }

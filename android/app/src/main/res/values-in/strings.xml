@@ -182,6 +182,11 @@
     <!-- Settings -->
     <string name="settings_title">Pengaturan</string>
     <string name="settings_general">Umum</string>
+    <string name="settings_theme">Tema</string>
+    <string name="settings_theme_desc">Berlaku untuk seluruh aplikasi — menu, toolbar, dan jendela terminal itu sendiri.</string>
+    <string name="theme_system">Sistem</string>
+    <string name="theme_dark">Gelap</string>
+    <string name="theme_light">Terang</string>
     <string name="settings_terminal">Terminal</string>
     <string name="settings_font_size">Ukuran font (12–24)</string>
     <string name="settings_background">Latar belakang</string>

@@ -43,18 +43,65 @@ import com.uchat.android.terminal.keys.ModifierStateHolder
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** Terminal palette (matches assets/terminal/index.html — dark, high contrast). */
-object TerminalPalette {
-    val Background = Color(0xFF0B0D12)
-    val Surface = Color(0xFF171A21)
-    val SurfaceRaised = Color(0xFF1F232D)
-    val Outline = Color(0xFF31363F)
-    val Foreground = Color(0xFFE8EAF0)
-    val ForegroundDim = Color(0xFF9BA1AE)
-    val Accent = Color(0xFFE5484D)
-    val AccentDim = Color(0x66E5484D)
-    val Active = Color(0xFF4CC38A)
-}
+/**
+ * Terminal chrome scheme (matches assets/terminal/index.html — dark, high contrast).
+ * Both the dark and light instance keep the same role names so every screen of the terminal
+ * UI switches theme without touching its call sites.
+ */
+@androidx.compose.runtime.Immutable
+data class TerminalScheme(
+    val isLight: Boolean,
+    val Background: Color,
+    val Surface: Color,
+    val SurfaceRaised: Color,
+    val Outline: Color,
+    val Foreground: Color,
+    val ForegroundDim: Color,
+    val Accent: Color,
+    val AccentDim: Color,
+    val Active: Color,
+)
+
+/** Dark terminal chrome (matches assets/terminal/index.html — high contrast). */
+val DarkTerminalScheme =
+    TerminalScheme(
+        isLight = false,
+        Background = Color(0xFF0B0D12),
+        Surface = Color(0xFF171A21),
+        SurfaceRaised = Color(0xFF1F232D),
+        Outline = Color(0xFF31363F),
+        Foreground = Color(0xFFE8EAF0),
+        ForegroundDim = Color(0xFF9BA1AE),
+        Accent = Color(0xFFE5484D),
+        AccentDim = Color(0x66E5484D),
+        Active = Color(0xFF4CC38A),
+    )
+
+/** Light terminal chrome: same roles, luminance rebalanced for a near-white canvas. */
+val LightTerminalScheme =
+    TerminalScheme(
+        isLight = true,
+        Background = Color(0xFFF6F7FA),
+        Surface = Color(0xFFEDEFF4),
+        SurfaceRaised = Color(0xFFE2E5EC),
+        Outline = Color(0xFFC9CEDA),
+        Foreground = Color(0xFF1B1F28),
+        ForegroundDim = Color(0xFF5B6270),
+        Accent = Color(0xFFC43238),
+        AccentDim = Color(0x66C43238),
+        Active = Color(0xFF12855E),
+    )
+
+/** Active terminal scheme, provided by [com.uchat.android.ui.theme.UChatTheme]. */
+val LocalTerminalPalette =
+    androidx.compose.runtime.staticCompositionLocalOf<TerminalScheme> { DarkTerminalScheme }
+
+/**
+ * Composable accessor that keeps the historical `TerminalPalette.X` call sites working while
+ * the underlying scheme now follows the app's dark/light theme.
+ */
+val TerminalPalette: TerminalScheme
+    @Composable get() = LocalTerminalPalette.current
 
 /**
  * Layer 4/5 UI: the fully customizable extra-key toolbar.
