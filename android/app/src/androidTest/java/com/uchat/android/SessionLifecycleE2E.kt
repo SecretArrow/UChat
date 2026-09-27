@@ -131,7 +131,8 @@ class SessionLifecycleE2E {
         manager.reapExited(graceMillis = 0L)
         assertEquals(0, manager.all.size)
         replay.remove(sid)
-        assertEquals(ByteArray(0), replay.snapshot(sid))
+        // NOTE: arrays must be compared by content (assertEquals on arrays is identity).
+        org.junit.Assert.assertArrayEquals(ByteArray(0), replay.snapshot(sid))
     }
 
     @Test
