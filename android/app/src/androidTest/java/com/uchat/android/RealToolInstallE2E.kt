@@ -79,6 +79,8 @@ class RealToolInstallE2E {
         listOf("dev", "proc", "sys", "tmp", "root/workspace", "root/downloads").forEach {
             File(paths.ubuntuRoot, it).mkdirs()
         }
+        // Production semantics: isUbuntuInstalled requires the step-10 ready marker.
+        paths.markInstalled()
         assertTrue(paths.isUbuntuInstalled)
 
         // 5. Production script deployment (same call AppContainer makes at startup).

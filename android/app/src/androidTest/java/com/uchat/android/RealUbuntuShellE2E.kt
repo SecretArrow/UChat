@@ -79,7 +79,9 @@ class RealUbuntuShellE2E {
             File(paths.ubuntuRoot, it).mkdirs()
         }
 
-        // The app must now consider Ubuntu installed (bash + proot in place).
+        // The app must now consider Ubuntu installed — production semantics require the
+        // step-10 ready marker (a bare /bin/bash ships inside the rootfs and proves nothing).
+        paths.markInstalled()
         assertTrue("isUbuntuInstalled must be true", paths.isUbuntuInstalled)
 
         // 5. Real shell execution INSIDE the Ubuntu rootfs through the bundled proot.

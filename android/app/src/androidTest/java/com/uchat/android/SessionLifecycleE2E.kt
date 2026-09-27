@@ -70,6 +70,8 @@ class SessionLifecycleE2E {
         listOf("dev", "proc", "sys", "tmp", "root/workspace", "root/downloads").forEach {
             File(paths.ubuntuRoot, it).mkdirs()
         }
+        // Production semantics: the step-10 ready marker is mandatory for isUbuntuInstalled.
+        paths.markInstalled()
         assertTrue("isUbuntuInstalled must be true", paths.isUbuntuInstalled)
         return abi
     }
