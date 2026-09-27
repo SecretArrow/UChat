@@ -162,6 +162,9 @@
     <string name="tools_status_installed">Terpasang</string>
     <string name="tools_status_missing">Belum terpasang</string>
     <string name="tools_checking">Memeriksa…</string>
+    <string name="tools_working">Memproses…</string>
+    <string name="tools_install_failed">Instalasi gagal</string>
+    <string name="tools_ubuntu_missing">Ubuntu belum terpasang — instal dulu dari tab Home.</string>
     <string name="tools_env_title">Konfigurasi lingkungan</string>
     <string name="tools_env_base_url">Base URL</string>
     <string name="tools_env_api_key">API key</string>
@@ -292,4 +295,11 @@
     <string name="terminal_keyboard">Tampilkan keyboard</string>
     <string name="tset_scrollback">Buffer scrollback</string>
     <string name="tset_keep_screen_on">Layar tetap menyala di terminal</string>
+    <string name="tset_grid_title">Ukuran terminal</string>
+    <string name="tset_fit_screen">Sesuaikan layar (kolom/baris otomatis)</string>
+    <string name="tset_fit_screen_desc">Bila aktif, terminal selalu mengikuti ruang layar yang tersedia.</string>
+    <string name="tset_width_cols">Lebar terminal (kolom)</string>
+    <string name="tset_height_rows">Tinggi terminal (baris)</string>
+    <string name="tset_fixed_desc">Grid tetap — diperkecil otomatis bila layar lebih kecil, sehingga seluruh grid tetap terlihat.</string>
+    <string name="back_exit_hint">Tekan kembali sekali lagi untuk keluar</string>
 </resources>

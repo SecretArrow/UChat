@@ -5,6 +5,35 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 
+### Fixed
+- AI Tools installs now actually work end-to-end:
+  - `install-node.sh` was referenced by the registry but missing from the APK assets —
+    every Node.js install failed invisibly. Node is now installed from the official
+    nodejs.org tarball (arm64/armv7l/x64/x86) with a NodeSource apt fallback
+  - Claude Code self-heals: installs Node.js automatically when npm is missing
+  - `gnupg` added to essentials (required by apt repository setups)
+- Tool install/check feedback is no longer silent: busy spinner, live streamed
+  installer log tail, and a structured error card with one-tap Copy + Retry
+- Tools hub probes every registered tool when opened, so Installed/Not installed
+  status is real data instead of a blank guess
+- Back button no longer exits the app from any screen: overlays and tabs are
+  popped first, and the HOME root requires a double-press with a toast hint
+- Rotation no longer recreates the Activity (`configChanges`) and the selected
+  tab/overlay survives recreation (`rememberSaveable`)
+
+### Changed
+- Terminal text rendering is crisper: exact glyph-advance cell metrics (fixes
+  progressive glyph drift against cell backgrounds/cursor/box drawing) and edge
+  insets so text never touches the screen border
+
+### Added
+- Terminal size settings: Fit screen (auto columns/rows) toggle plus fixed
+  width (20–200 columns) and height (10–100 rows) sliders; a fixed grid larger
+  than the screen is uniformly scaled down and centered so it stays visible
+- E2E coverage: real Node.js install through the production script path
+  (`RealToolInstallE2E`), unit tests for tool state machine, grid geometry,
+  back-navigation policy and registry/asset script sync
+
 ### Planned
 - Tablet navigation rail + multi-pane layouts
 - SSH manager UI

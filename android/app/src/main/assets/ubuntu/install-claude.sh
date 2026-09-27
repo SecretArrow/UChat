@@ -9,9 +9,19 @@ if command -v claude >/dev/null 2>&1; then
 fi
 
 if ! command -v npm >/dev/null 2>&1; then
-  echo "[uchat] npm missing — run install-runtimes.sh first"
-  exit 1
+  echo "[uchat] npm missing — installing Node.js first (self-heal)"
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [ -f "$SCRIPT_DIR/install-node.sh" ]; then
+    bash "$SCRIPT_DIR/install-node.sh" || { echo "[uchat] node bootstrap failed"; exit 1; }
+  elif [ -f "$SCRIPT_DIR/install-runtimes.sh" ]; then
+    bash "$SCRIPT_DIR/install-runtimes.sh" || { echo "[uchat] runtimes bootstrap failed"; exit 1; }
+  else
+    echo "[uchat] no node installer available — cannot install claude"
+    exit 1
+  fi
 fi
+
+command -v npm >/dev/null 2>&1 || { echo "[uchat] npm still missing after bootstrap"; exit 1; }
 
 echo "[uchat] installing @anthropic-ai/claude-code globally"
 npm install -g @anthropic-ai/claude-code --silent || exit 1

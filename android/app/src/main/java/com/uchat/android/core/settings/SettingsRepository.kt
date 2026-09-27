@@ -41,6 +41,10 @@ data class UChatSettings(
     val terminalScrollButton: Boolean = true,
     val terminalScrollbackLines: Int = 2000,
     val terminalKeepScreenOn: Boolean = false,
+    // Grid geometry: fit-to-screen vs a fixed columns×rows grid (user requirement).
+    val terminalFitScreen: Boolean = true,
+    val terminalFixedCols: Int = 80,
+    val terminalFixedRows: Int = 24,
 )
 
 class SettingsRepository(private val context: Context) {
@@ -62,6 +66,9 @@ class SettingsRepository(private val context: Context) {
         val SCROLL_BUTTON = booleanPreferencesKey("terminal_scroll_button")
         val SCROLLBACK_LINES = intPreferencesKey("terminal_scrollback_lines")
         val KEEP_SCREEN_ON = booleanPreferencesKey("terminal_keep_screen_on")
+        val FIT_SCREEN = booleanPreferencesKey("terminal_fit_screen")
+        val FIXED_COLS = intPreferencesKey("terminal_fixed_cols")
+        val FIXED_ROWS = intPreferencesKey("terminal_fixed_rows")
         val FONT_SCALE = floatPreferencesKey("unused_placeholder")
     }
 
@@ -90,6 +97,9 @@ class SettingsRepository(private val context: Context) {
                 terminalScrollButton = p[Keys.SCROLL_BUTTON] ?: true,
                 terminalScrollbackLines = p[Keys.SCROLLBACK_LINES] ?: 2000,
                 terminalKeepScreenOn = p[Keys.KEEP_SCREEN_ON] ?: false,
+                terminalFitScreen = p[Keys.FIT_SCREEN] ?: true,
+                terminalFixedCols = p[Keys.FIXED_COLS] ?: 80,
+                terminalFixedRows = p[Keys.FIXED_ROWS] ?: 24,
             )
         }
 
@@ -155,5 +165,17 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setTerminalKeepScreenOn(enabled: Boolean) {
         context.dataStore.edit { it[Keys.KEEP_SCREEN_ON] = enabled }
+    }
+
+    suspend fun setTerminalFitScreen(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.FIT_SCREEN] = enabled }
+    }
+
+    suspend fun setTerminalFixedCols(cols: Int) {
+        context.dataStore.edit { it[Keys.FIXED_COLS] = cols.coerceIn(20, 200) }
+    }
+
+    suspend fun setTerminalFixedRows(rows: Int) {
+        context.dataStore.edit { it[Keys.FIXED_ROWS] = rows.coerceIn(10, 100) }
     }
 }

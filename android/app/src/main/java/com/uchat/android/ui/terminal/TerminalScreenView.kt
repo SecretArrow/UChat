@@ -285,6 +285,9 @@ fun TerminalScreenView(
                     controller = controller,
                     fontSizeSp = settings.terminalFontSize,
                     cursorBlinkEnabled = settings.terminalCursorBlink,
+                    fitScreen = settings.terminalFitScreen,
+                    fixedCols = settings.terminalFixedCols,
+                    fixedRows = settings.terminalFixedRows,
                     modifier = Modifier.fillMaxSize(),
                 )
                 // Quick scroll-to-bottom — only while the user is reading history (spec).

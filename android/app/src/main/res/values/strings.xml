@@ -162,6 +162,9 @@
     <string name="tools_status_installed">Installed</string>
     <string name="tools_status_missing">Not installed</string>
     <string name="tools_checking">Checking…</string>
+    <string name="tools_working">Working…</string>
+    <string name="tools_install_failed">Install failed</string>
+    <string name="tools_ubuntu_missing">Ubuntu is not installed yet — install it from the Home tab first.</string>
     <string name="tools_env_title">Environment configuration</string>
     <string name="tools_env_base_url">Base URL</string>
     <string name="tools_env_api_key">API key</string>
@@ -292,4 +295,11 @@
     <string name="terminal_keyboard">Show keyboard</string>
     <string name="tset_scrollback">Scrollback buffer</string>
     <string name="tset_keep_screen_on">Keep screen on in terminal</string>
+    <string name="tset_grid_title">Terminal size</string>
+    <string name="tset_fit_screen">Fit screen (auto columns/rows)</string>
+    <string name="tset_fit_screen_desc">When on, the terminal always matches the available screen space.</string>
+    <string name="tset_width_cols">Terminal width (columns)</string>
+    <string name="tset_height_rows">Terminal height (rows)</string>
+    <string name="tset_fixed_desc">Fixed grid — scaled down automatically when the screen is smaller, so the full grid stays visible.</string>
+    <string name="back_exit_hint">Press back again to exit</string>
 </resources>

@@ -1,5 +1,8 @@
 package com.uchat.android.ui
 
+import android.app.Activity
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -17,11 +20,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import com.uchat.android.R
@@ -43,6 +49,8 @@ import com.uchat.android.ui.projects.ProjectsScreen
 import com.uchat.android.ui.settings.DiagnosticsScreen
 import com.uchat.android.ui.settings.SettingsScreen
 import com.uchat.android.ui.terminal.TerminalScreenView
+import com.uchat.android.ui.tools.ToolUiState
+import com.uchat.android.ui.tools.ToolsController
 import com.uchat.android.ui.tools.ToolsScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -68,15 +76,31 @@ private enum class Overlay {
     TERMINAL_SETTINGS
 }
 
+internal enum class BackAction {
+    CLOSE_OVERLAY,
+    GO_HOME,
+    CONFIRM_EXIT
+}
+
+/** Pure back-navigation decision (unit-tested): pop overlay → pop tab → confirm exit at root. */
+internal fun resolveBackAction(hasOverlay: Boolean, notAtHome: Boolean): BackAction =
+    when {
+        hasOverlay -> BackAction.CLOSE_OVERLAY
+        notAtHome -> BackAction.GO_HOME
+        else -> BackAction.CONFIRM_EXIT
+    }
+
 /**
  * App router: bottom navigation + overlay screens. All application state is app-scoped (via
  * [AppContainer]); this composable only observes it.
  */
 @Composable
 fun AppRoot(container: AppContainer) {
-    var tab by remember { mutableStateOf(Tab.HOME) }
-    var overlay by remember { mutableStateOf(Overlay.NONE) }
+    // Saveable so rotation / process death never dumps the user back to an unexpected screen.
+    var tab by rememberSaveable { mutableStateOf(Tab.HOME) }
+    var overlay by rememberSaveable { mutableStateOf(Overlay.NONE) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     val settings by container.settingsRepository.settings.collectAsState(initial = UChatSettings())
     val projects by container.projectsRepository.observeAll().collectAsState(initial = emptyList())
@@ -98,9 +122,43 @@ fun AppRoot(container: AppContainer) {
     var fileEntries by remember { mutableStateOf<List<FileEntry>>(emptyList()) }
     var filesLoading by remember { mutableStateOf(false) }
 
-    // Tools state
+    // Tools state — per-tool busy/log/version/error, all surfaced in the UI (never silent).
+    val toolStates = remember { androidx.compose.runtime.mutableStateOf(ToolsController.initial()) }
     var toolVersions by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
-    var busyTools by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var toolsAutoChecked by rememberSaveable { mutableStateOf(false) }
+    var backPressedAt by rememberSaveable { mutableLongStateOf(0L) }
+
+    // Back navigation: overlays and non-home tabs are popped first; the app only exits from the
+    // HOME root, and even then requires a second press within 2s so a running terminal session
+    // can never be lost by an accidental back (user requirement: exit ONLY from main screen).
+    BackHandler {
+        when (
+            resolveBackAction(hasOverlay = overlay != Overlay.NONE, notAtHome = tab != Tab.HOME)
+        ) {
+            BackAction.CLOSE_OVERLAY -> overlay = Overlay.NONE
+            BackAction.GO_HOME -> tab = Tab.HOME
+            BackAction.CONFIRM_EXIT -> {
+                val now = System.currentTimeMillis()
+                if (now - backPressedAt < 2000L) {
+                    (context as? Activity)?.finish()
+                } else {
+                    backPressedAt = now
+                    Toast.makeText(context, R.string.back_exit_hint, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    // Probe every registered tool once when the hub is first opened, so "Not installed" vs
+    // "Installed" is real data instead of a blank guess.
+    LaunchedEffect(overlay, container.paths.isUbuntuInstalled) {
+        if (overlay == Overlay.TOOLS && !toolsAutoChecked && container.paths.isUbuntuInstalled) {
+            toolsAutoChecked = true
+            container.toolRegistry.tools.forEach { tool ->
+                checkToolNow(container, tool, toolStates)
+            }
+        }
+    }
 
     // Poll the live session list (cheap, CPU friendly — spec #33)
     LaunchedEffect(Unit) {
@@ -339,21 +397,12 @@ fun AppRoot(container: AppContainer) {
             Overlay.TOOLS ->
                 ToolsScreen(
                     tools = container.toolRegistry.tools,
-                    versions = toolVersions,
-                    busyTools = busyTools,
+                    toolStates = toolStates.value,
                     onCheck = { tool ->
-                        checkTool(container, tool, busyTools, setBusy = { busyTools = it }) { result
-                            ->
-                            toolVersions = toolVersions + result
-                            busyTools = busyTools - tool.id
-                        }
+                        scope.launch { checkToolNow(container, tool, toolStates) }
                     },
                     onInstall = { tool ->
-                        installTool(container, tool, busyTools, setBusy = { busyTools = it }) {
-                            result ->
-                            toolVersions = toolVersions + result
-                            busyTools = busyTools - tool.id
-                        }
+                        scope.launch { installToolNow(container, tool, toolStates) }
                     },
                     onLaunch = { tool ->
                         launchCommand(container, tool.name, listOf(tool.executable)) { id ->
@@ -505,47 +554,83 @@ private fun secretsEnv(container: AppContainer): Map<String, String> {
     return map
 }
 
-private fun checkTool(
+/**
+ * Probes whether [tool] is present, streaming the outcome into [states]. Failures during a plain
+ * check are shown as "Not installed" (no error card) — installing is where errors surface.
+ */
+private suspend fun checkToolNow(
     container: AppContainer,
     tool: ToolEntry,
-    busy: Set<String>,
-    setBusy: (Set<String>) -> Unit,
-    onResult: (Map<String, String>) -> Unit,
+    states: androidx.compose.runtime.MutableState<Map<String, ToolUiState>>,
 ) {
-    setBusy(busy + tool.id)
-    container.appScope.launch {
-        try {
-            val result =
-                container.shell.exec(listOf(tool.executable, "--version"), timeoutSeconds = 20)
-            val version = if (result.success) result.stdout.trim().lineOrNull() else null
-            onResult(if (version != null) mapOf(tool.id to version) else emptyMap())
-        } catch (e: Exception) {
-            Logs.app("check ${tool.id} failed: ${e.message}")
-            onResult(emptyMap())
-        }
+    if (!container.paths.isUbuntuInstalled) {
+        states.value =
+            ToolsController.fail(
+                states.value,
+                tool.id,
+                container.appContext.getString(R.string.tools_ubuntu_missing),
+            )
+        return
+    }
+    states.value = ToolsController.begin(states.value, tool.id)
+    try {
+        val result = container.shell.exec(listOf(tool.executable, "--version"), timeoutSeconds = 30)
+        val version = if (result.success) result.stdout.trim().lineOrNull() else null
+        states.value =
+            if (version != null) {
+                ToolsController.succeed(states.value, tool.id, version)
+            } else {
+                ToolsController.absent(states.value, tool.id)
+            }
+    } catch (e: Exception) {
+        Logs.app("check ${tool.id} failed: ${e.message}")
+        states.value = ToolsController.absent(states.value, tool.id)
     }
 }
 
-private fun installTool(
+/**
+ * Runs the tool's install script INSIDE Ubuntu, streaming every output line into [states], then
+ * verifies the executable. Every failure path is surfaced — the old version logged to logcat and
+ * moved on, which looked exactly like "the button does nothing".
+ */
+private suspend fun installToolNow(
     container: AppContainer,
     tool: ToolEntry,
-    busy: Set<String>,
-    setBusy: (Set<String>) -> Unit,
-    onResult: (Map<String, String>) -> Unit,
+    states: androidx.compose.runtime.MutableState<Map<String, ToolUiState>>,
 ) {
     val script = tool.installScript ?: return
-    setBusy(busy + tool.id)
-    container.appScope.launch {
-        try {
-            container.shell.runScript("${Proot.UBUNTU_SCRIPTS}/$script")
-            val result =
-                container.shell.exec(listOf(tool.executable, "--version"), timeoutSeconds = 20)
-            val version = if (result.success) result.stdout.trim().lineOrNull() else null
-            onResult(if (version != null) mapOf(tool.id to version) else emptyMap())
-        } catch (e: Exception) {
-            Logs.app("install ${tool.id} failed: ${e.message}")
-            onResult(emptyMap())
-        }
+    if (!container.paths.isUbuntuInstalled) {
+        states.value =
+            ToolsController.fail(
+                states.value,
+                tool.id,
+                container.appContext.getString(R.string.tools_ubuntu_missing),
+            )
+        return
+    }
+    states.value = ToolsController.begin(states.value, tool.id)
+    try {
+        val result =
+            container.shell.runScript("${Proot.UBUNTU_SCRIPTS}/$script", timeoutSeconds = 1800) {
+                line ->
+                states.value = ToolsController.appendLog(states.value, tool.id, line)
+            }
+        // Verify regardless of the script exit code — presence is the real signal.
+        val verify = container.shell.exec(listOf(tool.executable, "--version"), timeoutSeconds = 30)
+        val version = if (verify.success) verify.stdout.trim().lineOrNull() else null
+        states.value =
+            if (version != null) {
+                ToolsController.succeed(states.value, tool.id, version)
+            } else {
+                val detail =
+                    ToolsController.summarizeFailure(if (result.success) verify else result)
+                        ?: "installer exited ${result.exitCode}, ${tool.executable} still not found"
+                ToolsController.fail(states.value, tool.id, detail)
+            }
+    } catch (e: Exception) {
+        Logs.app("install ${tool.id} failed: ${e.message}")
+        states.value =
+            ToolsController.fail(states.value, tool.id, e.message ?: e.javaClass.simpleName)
     }
 }
 

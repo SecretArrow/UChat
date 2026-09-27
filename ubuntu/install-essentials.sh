@@ -13,6 +13,7 @@ apt-get install -y --no-install-recommends \
   ca-certificates \
   curl \
   wget \
+  gnupg \
   git \
   openssh-client \
   rsync \

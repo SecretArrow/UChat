@@ -69,6 +69,10 @@ private class CellMetrics {
     var ascent = 0f
 }
 
+/** Breathing room around the grid so text never touches the screen edge. */
+private const val HORIZONTAL_INSET_DP = 6
+private const val VERTICAL_INSET_DP = 4
+
 /** One endpoint of a text selection, in absolute viewport coordinates. */
 private data class SelCell(val row: Int, val col: Int)
 
@@ -98,10 +102,15 @@ fun TerminalView(
     controller: TerminalController,
     fontSizeSp: Int,
     cursorBlinkEnabled: Boolean,
+    fitScreen: Boolean,
+    fixedCols: Int,
+    fixedRows: Int,
     modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
     val fontSizePx = with(density) { fontSizeSp.sp.toPx() }
+    val insetX = with(density) { HORIZONTAL_INSET_DP.dp.toPx() }
+    val insetY = with(density) { VERTICAL_INSET_DP.dp.toPx() }
 
     val metrics = remember { CellMetrics() }
     var scrollPx by remember { mutableFloatStateOf(0f) }
@@ -123,9 +132,44 @@ fun TerminalView(
                 val fm = fontMetrics
                 metrics.ascent = fm.ascent
                 metrics.cellHeight = ceil(fm.descent - fm.ascent).coerceAtLeast(1f)
-                metrics.cellWidth = ceil(measureText("M")).coerceAtLeast(1f)
+                // EXACT float advance — ceil() here made glyphs drift progressively against the
+                // cell grid (background rects, cursor, box drawing), the main cause of ragged
+                // terminal text. With the exact advance every run aligns to the grid perfectly.
+                metrics.cellWidth = measureText("M").coerceAtLeast(1f)
             }
         }
+
+    // Grid placement: fit-to-screen (identity) or the fixed grid scaled/centered into view.
+    var viewportSize by remember { mutableStateOf<androidx.compose.ui.unit.IntSize?>(null) }
+    var transform by remember { mutableStateOf(GridTransform.IDENTITY) }
+
+    fun applyGrid(size: androidx.compose.ui.unit.IntSize) {
+        if (size.width <= 0 || size.height <= 0) return
+        val vw = size.width.toFloat()
+        val vh = size.height.toFloat()
+        transform =
+            GridTransform.solve(
+                viewportWidth = vw,
+                viewportHeight = vh,
+                cols = fixedCols,
+                rows = fixedRows,
+                cellWidth = metrics.cellWidth,
+                cellHeight = metrics.cellHeight,
+                fitScreen = fitScreen,
+            )
+        if (fitScreen) {
+            val cols = floor((vw - 2 * insetX) / metrics.cellWidth).toInt().coerceAtLeast(2)
+            val rows = floor((vh - 2 * insetY) / metrics.cellHeight).toInt().coerceAtLeast(1)
+            controller.onGridViewport(cols, rows)
+        } else {
+            controller.onGridViewport(fixedCols, fixedRows)
+        }
+    }
+
+    // Re-apply the grid whenever the geometry settings or font change.
+    LaunchedEffect(fontSizePx, fitScreen, fixedCols, fixedRows) {
+        viewportSize?.let { applyGrid(it) }
+    }
 
     fun scrollLines(): Int = floor(scrollPx / metrics.cellHeight).toInt()
 
@@ -141,8 +185,11 @@ fun TerminalView(
         }
 
     fun cellAt(offset: Offset): SelCell {
-        val col = floor(offset.x / metrics.cellWidth).toInt().coerceAtLeast(0)
-        val row = floor(offset.y / metrics.cellHeight).toInt().coerceAtLeast(0)
+        val t = transform
+        val x = (offset.x - t.offsetX - insetX) / t.scale
+        val y = (offset.y - t.offsetY - insetY) / t.scale
+        val col = floor(x / metrics.cellWidth).toInt().coerceAtLeast(0)
+        val row = floor(y / metrics.cellHeight).toInt().coerceAtLeast(0)
         return SelCell(viewportTop() + row, col)
     }
 
@@ -267,9 +314,8 @@ fun TerminalView(
         Canvas(
             Modifier.fillMaxSize()
                 .onSizeChanged { size ->
-                    val cols = floor(size.width / metrics.cellWidth).toInt().coerceAtLeast(2)
-                    val rows = floor(size.height / metrics.cellHeight).toInt().coerceAtLeast(1)
-                    controller.onGridViewport(cols, rows)
+                    viewportSize = size
+                    applyGrid(size)
                 }
                 .pointerInput(Unit) {
                     detectTapGestures(
@@ -309,6 +355,11 @@ fun TerminalView(
                 controller.renderTick // snapshot read inside the draw pass → redraw on change
                 val canvas = composeCanvas.nativeCanvas
                 synchronized(controller.buffer.lock) {
+                    val t = transform
+                    canvas.save()
+                    // Center/scale the grid (fixed mode) and keep text off the screen edges.
+                    canvas.translate(t.offsetX + insetX, t.offsetY + insetY)
+                    if (t.scale != 1f) canvas.scale(t.scale, t.scale)
                     paintTerminal(
                         canvas,
                         controller,
@@ -320,6 +371,7 @@ fun TerminalView(
                         selectionFocus,
                         textPaint,
                     )
+                    canvas.restore()
                 }
             }
         }

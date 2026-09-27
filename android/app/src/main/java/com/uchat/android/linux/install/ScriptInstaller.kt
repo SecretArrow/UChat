@@ -5,22 +5,24 @@ import com.uchat.android.core.fs.UChatPaths
 import com.uchat.android.core.log.Logs
 import java.io.File
 
+/** Scripts copied from APK assets into the proot bind dir. Public for integrity tests. */
+val SCRIPTS =
+    listOf(
+        "install-essentials.sh",
+        "install-runtimes.sh",
+        "install-node.sh",
+        "install-opencode.sh",
+        "install-claude.sh",
+        "install-bun.sh",
+        "install-python.sh",
+        "healthcheck.sh",
+    )
+
 /**
  * Copies the bundled Ubuntu installer scripts from APK assets into the app-private scripts
  * directory that proot bind-mounts at /root/.uchat-scripts inside the environment.
  */
 object ScriptInstaller {
-
-    private val SCRIPTS =
-        listOf(
-            "install-essentials.sh",
-            "install-runtimes.sh",
-            "install-opencode.sh",
-            "install-claude.sh",
-            "install-bun.sh",
-            "install-python.sh",
-            "healthcheck.sh",
-        )
 
     fun install(context: Context, paths: UChatPaths) {
         paths.scriptsDir.mkdirs()

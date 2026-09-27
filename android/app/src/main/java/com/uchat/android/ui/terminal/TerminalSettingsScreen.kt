@@ -184,6 +184,42 @@ fun TerminalSettingsScreen(
             )
 
             Spacer(Modifier.height(16.dp))
+            SectionTitle(stringResource(R.string.tset_grid_title))
+            SwitchSetting(
+                label = stringResource(R.string.tset_fit_screen),
+                checked = settings.terminalFitScreen,
+                onChange = { scope.launch { repository.setTerminalFitScreen(it) } },
+            )
+            Text(
+                stringResource(R.string.tset_fit_screen_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = TerminalPalette.ForegroundDim,
+            )
+            if (!settings.terminalFitScreen) {
+                SliderSetting(
+                    label = stringResource(R.string.tset_width_cols),
+                    value = settings.terminalFixedCols.toFloat(),
+                    range = 20f..200f,
+                    steps = 35,
+                    display = { "${it.toInt()} cols" },
+                    onChange = { scope.launch { repository.setTerminalFixedCols(it.toInt()) } },
+                )
+                SliderSetting(
+                    label = stringResource(R.string.tset_height_rows),
+                    value = settings.terminalFixedRows.toFloat(),
+                    range = 10f..100f,
+                    steps = 17,
+                    display = { "${it.toInt()} rows" },
+                    onChange = { scope.launch { repository.setTerminalFixedRows(it.toInt()) } },
+                )
+                Text(
+                    stringResource(R.string.tset_fixed_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TerminalPalette.ForegroundDim,
+                )
+            }
+
+            Spacer(Modifier.height(16.dp))
             SectionTitle(stringResource(R.string.tset_scrollback))
             SliderSetting(
                 label = stringResource(R.string.tset_scrollback),
