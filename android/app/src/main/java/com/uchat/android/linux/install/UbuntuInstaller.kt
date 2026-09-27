@@ -90,9 +90,11 @@ class UbuntuInstaller(
     private val stateInternal = MutableStateFlow(InstallState())
     val state: StateFlow<InstallState> = stateInternal
 
-    /** Free space required BEFORE apt starts unpacking packages (v1.6.0 field report: a
-     *  nearly-full disk made dpkg die with an opaque "error code (2)"). 600 MB covers the
-     *  essentials set (build-essential, cmake, python3, ...) unpacked plus the .deb cache. */
+    /**
+     * Free space required BEFORE apt starts unpacking packages (v1.6.0 field report: a nearly-full
+     * disk made dpkg die with an opaque "error code (2)"). 600 MB covers the essentials set
+     * (build-essential, cmake, python3, ...) unpacked plus the .deb cache.
+     */
     private val minFreeBeforeAptBytes: Long = 600L * 1024 * 1024
 
     private var job: Job? = null
@@ -116,10 +118,10 @@ class UbuntuInstaller(
     }
 
     /**
-     * Pause at ANY step: downloads stop through [Downloader], script steps (5-9) are stopped
-     * by the Shell watchdog killing the process. The step being interrupted is persisted as
-     * the resume point, so the next resume continues exactly here — apt/dpkg debris is
-     * self-healed by dpkg-recover.sh before the next apt run.
+     * Pause at ANY step: downloads stop through [Downloader], script steps (5-9) are stopped by the
+     * Shell watchdog killing the process. The step being interrupted is persisted as the resume
+     * point, so the next resume continues exactly here — apt/dpkg debris is self-healed by
+     * dpkg-recover.sh before the next apt run.
      */
     fun pause() {
         pauseRequested.set(true)
@@ -165,19 +167,23 @@ class UbuntuInstaller(
         }
     }
 
-    /** Pulls the actionable lines (apt E:, dpkg errors, ENOSPC, fetch failures) out of a
-     *  failed script run — the raw first-400-chars-of-stderr hid the real cause behind the
-     *  harmless "debconf: delaying package configuration" warning in the v1.6.0 reports. */
+    /**
+     * Pulls the actionable lines (apt E:, dpkg errors, ENOSPC, fetch failures) out of a failed
+     * script run — the raw first-400-chars-of-stderr hid the real cause behind the harmless
+     * "debconf: delaying package configuration" warning in the v1.6.0 reports.
+     */
     private fun failureDetail(result: ExecResult): String {
         val lines = (result.stderr + "\n" + result.stdout).lines()
         val actionable =
-            lines.filter {
-                it.startsWith("E: ") ||
-                    it.startsWith("dpkg: error") ||
-                    it.contains("No space left on device") ||
-                    it.startsWith("Err:") ||
-                    it.startsWith("W: Failed to fetch")
-            }.distinct()
+            lines
+                .filter {
+                    it.startsWith("E: ") ||
+                        it.startsWith("dpkg: error") ||
+                        it.contains("No space left on device") ||
+                        it.startsWith("Err:") ||
+                        it.startsWith("W: Failed to fetch")
+                }
+                .distinct()
         val chosen =
             if (actionable.isNotEmpty()) {
                 actionable
@@ -568,8 +574,10 @@ class UbuntuInstaller(
         stateInternal.value = stateInternal.value.copy(running = false, fatal = error.redacted)
     }
 
-    /** Restores the interrupted step from a previous process (plain file, survives process
-     *  death) — it may be a FAILED step or a step that was RUNNING when the app was killed. */
+    /**
+     * Restores the interrupted step from a previous process (plain file, survives process death) —
+     * it may be a FAILED step or a step that was RUNNING when the app was killed.
+     */
     private fun restoreResumableStep(): InstallStep? {
         val id = paths.loadInstallResume() ?: return null
         return InstallStep.ordered()

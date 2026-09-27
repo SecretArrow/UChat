@@ -25,12 +25,11 @@ import org.junit.runner.RunWith
 
 /**
  * End-to-end resilience proof for the v1.6.0 field reports:
- *
- * 1. "E: dpkg was interrupted, you must manually run 'dpkg --configure -a'" — a run killed
- *    mid-apt (Android background kill / battery / network stall) wedged the package database
- *    so EVERY later retry failed. dpkg-recover.sh must heal exactly that state, offline.
- * 2. Pause during a running script step must actually stop the process (previously pause()
- *    only affected downloads — during apt the button did nothing), quickly and cleanly.
+ * 1. "E: dpkg was interrupted, you must manually run 'dpkg --configure -a'" — a run killed mid-apt
+ *    (Android background kill / battery / network stall) wedged the package database so EVERY later
+ *    retry failed. dpkg-recover.sh must heal exactly that state, offline.
+ * 2. Pause during a running script step must actually stop the process (previously pause() only
+ *    affected downloads — during apt the button did nothing), quickly and cleanly.
  *
  * Everything runs against the real rootfs through the real proot — no mocks.
  */
@@ -49,8 +48,7 @@ class InstallResilienceE2E {
         val rootfsEntry = entry!!
         val archive = File(paths.downloadsDir, rootfsEntry.id + ".e2e-resilience")
         archive.delete()
-        val downloaded =
-            Downloader().download(rootfsEntry.url, archive, rootfsEntry.sizeBytes) {}
+        val downloaded = Downloader().download(rootfsEntry.url, archive, rootfsEntry.sizeBytes) {}
         assertTrue(Checksum.matches(downloaded, rootfsEntry.sha256))
         val entries =
             Extractor.extractTarGz(downloaded, paths.ubuntuRoot, rootfsEntry.extractedBytes)
@@ -139,9 +137,9 @@ class InstallResilienceE2E {
         val flag = AtomicBoolean(false)
         val timer =
             Thread {
-                Thread.sleep(1500)
-                flag.set(true)
-            }
+                    Thread.sleep(1500)
+                    flag.set(true)
+                }
                 .apply {
                     isDaemon = true
                     start()

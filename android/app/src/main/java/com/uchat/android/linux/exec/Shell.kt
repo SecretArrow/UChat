@@ -23,10 +23,10 @@ data class ExecResult(
 }
 
 /**
- * Thrown when a running command is stopped because the user paused the installation.
- * This is not an error: the installer persists its resume state, and the next resume
- * re-runs the step from the beginning (install scripts self-heal an interrupted dpkg
- * state, so killing a script mid-flight is safe).
+ * Thrown when a running command is stopped because the user paused the installation. This is not an
+ * error: the installer persists its resume state, and the next resume re-runs the step from the
+ * beginning (install scripts self-heal an interrupted dpkg state, so killing a script mid-flight is
+ * safe).
  */
 class ProcessPausedException : Exception("process paused by user")
 
@@ -36,9 +36,9 @@ class ProcessPausedException : Exception("process paused by user")
  * Used by the installer, tool verification, git status, port detection and diagnostics. Always
  * argument-array based (spec #64); commands are executed via `proot ... <cmd argv>` with a timeout.
  *
- * Pause support: when [exec] is given a [pauseRequested] predicate, a watchdog thread polls it
- * and terminates the process tree as soon as the user asks to pause. Without the predicate the
- * behavior is identical to previous releases.
+ * Pause support: when [exec] is given a [pauseRequested] predicate, a watchdog thread polls it and
+ * terminates the process tree as soon as the user asks to pause. Without the predicate the behavior
+ * is identical to previous releases.
  */
 class Shell(private val paths: UChatPaths, private val abi: DeviceAbi) {
 
