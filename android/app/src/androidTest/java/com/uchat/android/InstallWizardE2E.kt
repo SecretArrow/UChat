@@ -1,12 +1,13 @@
 package com.uchat.android
 
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.printToString
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -54,8 +55,14 @@ class InstallWizardE2E {
         }
         if (countOf(R.string.home_title) > 0) return // already installed; nothing to assert here
 
-        val startButton = composeRule.onNodeWithText(text(R.string.install_start))
-        startButton.performClick()
+        val app = composeRule.activity.application as com.uchat.android.UChatApp
+
+        // The Start button sits below the fold inside the wizard's scrollable column: bring it
+        // into view first, otherwise the injected tap lands outside the viewport and is dropped.
+        composeRule
+            .onNode(hasScrollAction())
+            .performScrollToNode(hasText(text(R.string.install_start)))
+        composeRule.onNodeWithText(text(R.string.install_start)).performClick()
 
         // After tapping Install the UI MUST react visibly: either a step flips to Running,
         // pause/cancel controls appear, or (offline) a copyable error card is rendered.
@@ -73,52 +80,34 @@ class InstallWizardE2E {
                 false
             }
 
-        if (!reacted) {
-            // Diagnose: read the installer's REAL state through the app container so the failure
-            // message separates a wiring regression (callback never fired / state never moved)
-            // from a rendering problem (state moved but UI didn't show it).
-            val app = composeRule.activity.application as com.uchat.android.UChatApp
-            val st1 = app.container.installer.state.value
-            val summary1 =
-                "running=${st1.running} paused=${st1.paused} currentStep=${st1.currentStep} " +
-                    "fatal=${st1.fatal}"
+        if (reacted) {
+            // Leave a clean environment (stop the real download the tap started).
+            app.container.installer.cancel()
+            return
+        }
 
-            // If the Start button is disabled (emulator storage below the pinned requirement) the
-            // tap cannot trigger anything — an environment limitation, not a wiring regression.
-            val startEnabled =
-                try {
-                    composeRule.onNodeWithText(text(R.string.install_start)).assertIsEnabled()
-                    true
-                } catch (e: Throwable) {
-                    false
-                }
-            if (startEnabled) {
-                // Isolate UI wiring vs installer: invoke the installer directly.
-                app.container.installer.start(app.container.abi)
-                val directReacted =
-                    try {
-                        composeRule.waitUntil(timeoutMillis = 20_000) {
-                            val s = app.container.installer.state.value
-                            s.running || s.currentStep != null || s.fatal != null
-                        }
-                        true
-                    } catch (e: Throwable) {
-                        false
-                    }
-                val st2 = app.container.installer.state.value
-                val tree = composeRule.onRoot().printToString().lines().take(120).joinToString("\n")
-                fail(
-                    "Install tap produced no visible state. | tapState: $summary1 | " +
-                        "directStartReacted=$directReacted | afterDirect: " +
-                        "running=${st2.running} currentStep=${st2.currentStep} " +
-                        "fatal=${st2.fatal} | tree:\n$tree",
-                )
+        // If the Start button is disabled (emulator storage below the pinned requirement) the
+        // tap cannot trigger anything — an environment limitation, not a wiring regression.
+        // In that case the wizard MUST still show the storage shortfall warning.
+        val startEnabled =
+            try {
+                composeRule.onNodeWithText(text(R.string.install_start)).assertIsEnabled()
+                true
+            } catch (e: Throwable) {
+                false
             }
-            assertTrue(
-                "disabled Install must be explained by the insufficient-storage warning",
-                countOf(R.string.install_insufficient_storage) > 0,
+        if (startEnabled) {
+            val st = app.container.installer.state.value
+            fail(
+                "Install tap produced no visible state (running/pause/cancel/error) — " +
+                    "wizard wiring regression. running=${st.running} " +
+                    "currentStep=${st.currentStep} fatal=${st.fatal}",
             )
         }
+        assertTrue(
+            "disabled Install must be explained by the insufficient-storage warning",
+            countOf(R.string.install_insufficient_storage) > 0,
+        )
     }
 
     private fun countOf(resId: Int): Int =
