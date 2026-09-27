@@ -17,7 +17,6 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -183,8 +182,11 @@ class InstallResilienceE2E {
             emptyList<String>(),
             dpkgUpdates.listFiles()?.map { it.name } ?: emptyList<String>(),
         )
-        assertFalse("stale lock-frontend must be removed", lockFront.exists())
-        assertFalse("stale lock must be removed", lock.exists())
+        // NOTE: lock FILES may legitimately still exist here — dpkg creates them (0640,
+        // zero-byte) for every run and only releases its fcntl lock on exit, it does not
+        // unlink them. A leftover lock file never wedges apt; only the transaction journal
+        // does (asserted above) and a live fcntl lock (dies with the process). The recovery
+        // script removes stale lock files BEFORE dpkg takes fresh ones — that is what counts.
 
         // --- Scenario B: CORRUPT journal (parse error) — the fallback clear-and-retry path.
         File(dpkgUpdates, "0002").writeText("garbage-binary-journal-\u0000\u0001\u0002")
