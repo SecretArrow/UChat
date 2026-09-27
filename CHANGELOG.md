@@ -3,7 +3,7 @@
 All notable changes to UChat are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [1.3.0] - 2026-09-27
 
 ### Fixed
 - AI Tools installs now actually work end-to-end:
