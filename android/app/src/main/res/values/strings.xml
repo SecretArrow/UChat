@@ -31,6 +31,8 @@
     <string name="action_export">Export</string>
     <string name="action_pause">Pause</string>
     <string name="action_resume">Resume</string>
+    <string name="install_pausing">Pausing… stopping the current step safely</string>
+    <string name="install_paused_hint">Paused — your progress is kept. Resume when you\'re ready (a resume never re-downloads what is already on disk).</string>
     <string name="action_back">Back</string>
     <string name="action_done">Done</string>
     <string name="action_copied">Copied</string>
@@ -339,6 +341,7 @@
     <string name="installer_error_checksum_title">Checksum mismatch</string>
     <string name="installer_error_checksum_reason">The downloaded %1$s does not match the pinned SHA-256 — the download is corrupted.</string>
     <string name="installer_error_apt_title">apt install failed</string>
+    <string name="installer_error_apt_space_reason">Only %1$s of free storage — installing packages needs at least %2$s. Free up storage, then retry.</string>
     <string name="installer_error_runtime_title">Runtime install failed</string>
     <string name="installer_error_opencode_title">OpenCode install failed</string>
     <string name="installer_error_claude_title">Claude Code install failed</string>

@@ -23,7 +23,8 @@ object InstallResume {
     )
 
     /**
-     * @param resumable the step a previous run failed at (null = fresh install / unknown state).
+     * @param resumable the step a previous run failed at or was paused/killed in (null = no
+     *   persisted state: fresh install, or a pre-1.7.0 process death mid-step).
      * @param archiveExists true when a downloaded rootfs archive is present on disk.
      * @param rootfsHasBash true when `ubuntuRoot/bin/bash` exists (i.e. extraction completed).
      */
@@ -32,13 +33,26 @@ object InstallResume {
         archiveExists: Boolean,
         rootfsHasBash: Boolean,
     ): Decision {
-        val failed =
-            resumable
-                ?: return Decision(
+        if (resumable == null) {
+            // No persisted step state. If the rootfs is already extracted, steps 1-3 MUST NOT
+            // repeat: a process death during step 5+ (apt install — Android kills backgrounded
+            // apps) used to fall through to a full ~30 MB re-download here, silently burning
+            // the user's metered data. Jump to step 4 instead; initialize is idempotent.
+            return if (rootfsHasBash) {
+                Decision(
+                    skipArchive = true,
+                    reuseArchive = false,
+                    fromStep = InstallStep.INITIALIZE_UBUNTU,
+                )
+            } else {
+                Decision(
                     skipArchive = false,
                     reuseArchive = false,
                     fromStep = InstallStep.DOWNLOAD_ROOTFS,
                 )
+            }
+        }
+        val failed = resumable
         return when {
             // Failures at step 4+ mean the archive was fully extracted before the crash —
             // repeating steps 1-3 would only waste bandwidth and disk I/O.

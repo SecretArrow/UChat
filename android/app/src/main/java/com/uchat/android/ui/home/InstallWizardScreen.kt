@@ -187,6 +187,22 @@ fun InstallWizardScreen(
             )
         }
 
+        // ---- Pause state feedback ----
+        if (state.running && state.paused) {
+            Text(
+                stringResource(R.string.install_pausing),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (!state.running && state.paused && !state.finished) {
+            Text(
+                stringResource(R.string.install_paused_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
         // ---- Controls ----
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             if (!state.running && !state.finished) {

@@ -3,6 +3,34 @@
 All notable changes to UChat are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [SemVer](https://semver.org/).
 
+## [1.7.0] - 2026-09-27
+
+### Fixed
+- **apt no longer stays broken after an interrupted install** ("E: dpkg was interrupted,
+  you must manually run 'dpkg --configure -a'" / "Sub-process /usr/bin/dpkg returned an
+  error code (2)"): a new `dpkg-recover.sh` step heals the package database before every
+  apt run — stale locks removed, the interrupted-transaction journal replayed (or cleared
+  when corrupt), pending configurations finished, and broken dependencies repaired
+- **A killed app can no longer silently re-download the ~30 MB rootfs**: the resume step
+  is now persisted BEFORE each step starts, so when Android kills the app mid-apt the
+  next launch continues from that exact step (previously a process death mid-step fell
+  through to a full re-download on metered data)
+- **apt failures now report the real cause**: error reports show the actual `E:`/`dpkg:`
+  lines instead of the harmless "debconf: delaying package configuration" warning, a
+  nearly-full disk fails early with a clear storage message (and is detected in apt
+  output via "No space left on device"), and `apt-utils` is installed so debconf stops
+  delaying package configuration
+
+### Changed
+- **Pause now works at every install step**: previously Pause only stopped downloads —
+  during the package-install steps the button did nothing. Scripts are now stopped
+  safely (SIGTERM, then SIGKILL after a grace period), the wizard shows "Pausing…" and
+  "Paused — progress is kept" feedback, and resume re-runs the interrupted step after
+  healing dpkg state
+- **More resilient apt on mobile networks**: 3 full install attempts (not just download
+  retries) with dpkg recovery between attempts, HTTPS timeouts bounded, conffile prompts
+  force-disabled, and the timeout for install steps raised from 30 to 60 minutes
+
 ## [1.6.0] - 2026-09-29
 
 ### Fixed

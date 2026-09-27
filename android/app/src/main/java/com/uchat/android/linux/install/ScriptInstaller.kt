@@ -8,6 +8,7 @@ import java.io.File
 /** Scripts copied from APK assets into the proot bind dir. Public for integrity tests. */
 val SCRIPTS =
     listOf(
+        "dpkg-recover.sh",
         "install-essentials.sh",
         "install-runtimes.sh",
         "install-node.sh",

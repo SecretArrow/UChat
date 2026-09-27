@@ -23,10 +23,24 @@ class InstallResumeTest {
     ) = InstallResume.decide(step, archiveExists = archive, rootfsHasBash = bash)
 
     @Test
-    fun `no previous failure always starts a fresh pipeline`() {
+    fun `no persisted state without an extracted rootfs starts a fresh pipeline`() {
         assertEquals(fresh, decide(null))
         assertEquals(fresh, decide(null, archive = true))
-        assertEquals(fresh, decide(null, bash = true))
+    }
+
+    @Test
+    fun `no persisted state with an extracted rootfs never re-downloads`() {
+        // Process death mid-apt (Android kills backgrounded apps) leaves NO failed-step state.
+        // With bash already on disk the rootfs is fully extracted — repeating steps 1-3 would
+        // silently burn ~30 MB of metered data (the v1.6.0 "habis paket internet" report).
+        val d = decide(null, bash = true)
+        assertTrue("extracted rootfs must skip the archive pipeline", d.skipArchive)
+        assertFalse(d.reuseArchive)
+        assertEquals(InstallStep.INITIALIZE_UBUNTU, d.fromStep)
+
+        val withArchive = decide(null, archive = true, bash = true)
+        assertTrue(withArchive.skipArchive)
+        assertEquals(InstallStep.INITIALIZE_UBUNTU, withArchive.fromStep)
     }
 
     @Test

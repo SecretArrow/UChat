@@ -14,10 +14,13 @@ import com.uchat.android.linux.Extractor
 import com.uchat.android.linux.Proot
 import com.uchat.android.linux.downloader.Downloader
 import com.uchat.android.linux.downloader.Downloader.PausedException
+import com.uchat.android.linux.exec.ExecResult
+import com.uchat.android.linux.exec.ProcessPausedException
 import com.uchat.android.linux.exec.Shell
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -49,6 +52,9 @@ val EnglishInstallerStrings: InstallerStrings = InstallerStrings { resId, _ ->
         R.string.installer_error_checksum_reason ->
             "The downloaded %1\$s does not match the pinned SHA-256 — the download is corrupted."
         R.string.installer_error_apt_title -> "apt install failed"
+        R.string.installer_error_apt_space_reason ->
+            "Only %1\$s of free storage — installing packages needs at least %2\$s. " +
+                "Free up storage, then retry."
         R.string.installer_error_runtime_title -> "Runtime install failed"
         R.string.installer_error_opencode_title -> "OpenCode install failed"
         R.string.installer_error_claude_title -> "Claude Code install failed"
@@ -84,8 +90,16 @@ class UbuntuInstaller(
     private val stateInternal = MutableStateFlow(InstallState())
     val state: StateFlow<InstallState> = stateInternal
 
+    /** Free space required BEFORE apt starts unpacking packages (v1.6.0 field report: a
+     *  nearly-full disk made dpkg die with an opaque "error code (2)"). 600 MB covers the
+     *  essentials set (build-essential, cmake, python3, ...) unpacked plus the .deb cache. */
+    private val minFreeBeforeAptBytes: Long = 600L * 1024 * 1024
+
     private var job: Job? = null
     private var resumableStep: InstallStep? = null
+
+    /** Set by [pause]; observed by the download loop AND by the script-execution watchdog. */
+    private val pauseRequested = AtomicBoolean(false)
 
     val isRunning: Boolean
         get() = stateInternal.value.running
@@ -97,10 +111,18 @@ class UbuntuInstaller(
     /** Starts or resumes the installation from the first unfinished step. */
     fun start(abi: DeviceAbi) {
         if (isRunning) return
+        pauseRequested.set(false)
         job = scope.launch(Dispatchers.IO) { runInstall(abi) }
     }
 
+    /**
+     * Pause at ANY step: downloads stop through [Downloader], script steps (5-9) are stopped
+     * by the Shell watchdog killing the process. The step being interrupted is persisted as
+     * the resume point, so the next resume continues exactly here — apt/dpkg debris is
+     * self-healed by dpkg-recover.sh before the next apt run.
+     */
     fun pause() {
+        pauseRequested.set(true)
         downloader.pause()
         stateInternal.value = stateInternal.value.copy(paused = true)
     }
@@ -111,12 +133,14 @@ class UbuntuInstaller(
     }
 
     fun cancel() {
+        pauseRequested.set(false)
         downloader.cancel()
         job?.cancel()
         stateInternal.value = stateInternal.value.copy(running = false, currentStep = null)
     }
 
     fun reset() {
+        pauseRequested.set(false)
         cancel()
         stateInternal.value = InstallState()
         resumableStep = null
@@ -132,6 +156,35 @@ class UbuntuInstaller(
                 statuses = current.statuses + (step to status),
                 currentStep = if (status is StepStatus.Running) step else current.currentStep,
             )
+        if (status is StepStatus.Running) {
+            // Persist BEFORE the step starts doing risky work: if Android kills the process
+            // mid-step (backgrounded app), the next launch resumes exactly here instead of
+            // falling back to a full ~30 MB rootfs re-download (metered data protection).
+            resumableStep = step
+            paths.saveInstallResume(step.id)
+        }
+    }
+
+    /** Pulls the actionable lines (apt E:, dpkg errors, ENOSPC, fetch failures) out of a
+     *  failed script run — the raw first-400-chars-of-stderr hid the real cause behind the
+     *  harmless "debconf: delaying package configuration" warning in the v1.6.0 reports. */
+    private fun failureDetail(result: ExecResult): String {
+        val lines = (result.stderr + "\n" + result.stdout).lines()
+        val actionable =
+            lines.filter {
+                it.startsWith("E: ") ||
+                    it.startsWith("dpkg: error") ||
+                    it.contains("No space left on device") ||
+                    it.startsWith("Err:") ||
+                    it.startsWith("W: Failed to fetch")
+            }.distinct()
+        val chosen =
+            if (actionable.isNotEmpty()) {
+                actionable
+            } else {
+                lines.filter { it.isNotBlank() }.takeLast(8)
+            }
+        return (chosen.joinToString("\n") + "\n(exit code ${result.exitCode})").take(400)
     }
 
     private fun appendLog(line: String) {
@@ -312,17 +365,46 @@ class UbuntuInstaller(
 
             // Step 5 — essential packages
             setStepStatus(InstallStep.INSTALL_ESSENTIALS, StepStatus.Running)
-            val essentials =
-                shell.runScript("${Proot.UBUNTU_SCRIPTS}/install-essentials.sh") { line ->
-                    appendLog(line)
-                }
-            if (!essentials.success) {
+            // Free-space gate BEFORE apt: dpkg dying from ENOSPC surfaces as an opaque
+            // "Sub-process /usr/bin/dpkg returned an error code (2)" — spell it out instead.
+            val freeBeforeApt = paths.totalUsableBytes()
+            if (freeBeforeApt < minFreeBeforeAptBytes) {
                 fail(
                     InstallStep.INSTALL_ESSENTIALS,
                     AppError(
-                        title = strings.get(R.string.installer_error_apt_title),
-                        reason = essentials.stderr.take(400),
-                        step = "install-essentials"
+                        title = strings.get(R.string.installer_error_storage_title),
+                        reason =
+                            strings.get(
+                                R.string.installer_error_apt_space_reason,
+                                Format.bytes(freeBeforeApt),
+                                Format.bytes(minFreeBeforeAptBytes),
+                            ),
+                        step = "install-essentials",
+                    ),
+                )
+                return
+            }
+            val essentials =
+                shell.runScript(
+                    "${Proot.UBUNTU_SCRIPTS}/install-essentials.sh",
+                    timeoutSeconds = 3600,
+                    pauseRequested = { pauseRequested.get() },
+                ) { line ->
+                    appendLog(line)
+                }
+            if (!essentials.success) {
+                val detail = failureDetail(essentials)
+                fail(
+                    InstallStep.INSTALL_ESSENTIALS,
+                    AppError(
+                        title =
+                            if (detail.contains("No space left on device")) {
+                                strings.get(R.string.installer_error_storage_title)
+                            } else {
+                                strings.get(R.string.installer_error_apt_title)
+                            },
+                        reason = detail,
+                        step = "install-essentials",
                     ),
                 )
                 return
@@ -332,7 +414,11 @@ class UbuntuInstaller(
             // Step 6 — runtimes (Node.js 22 + Python)
             setStepStatus(InstallStep.INSTALL_RUNTIMES, StepStatus.Running)
             val runtimes =
-                shell.runScript("${Proot.UBUNTU_SCRIPTS}/install-runtimes.sh") { line ->
+                shell.runScript(
+                    "${Proot.UBUNTU_SCRIPTS}/install-runtimes.sh",
+                    timeoutSeconds = 3600,
+                    pauseRequested = { pauseRequested.get() },
+                ) { line ->
                     appendLog(line)
                 }
             if (!runtimes.success) {
@@ -340,8 +426,8 @@ class UbuntuInstaller(
                     InstallStep.INSTALL_RUNTIMES,
                     AppError(
                         title = strings.get(R.string.installer_error_runtime_title),
-                        reason = runtimes.stderr.take(400),
-                        step = "install-runtimes"
+                        reason = failureDetail(runtimes),
+                        step = "install-runtimes",
                     ),
                 )
                 return
@@ -351,7 +437,11 @@ class UbuntuInstaller(
             // Step 7 — OpenCode
             setStepStatus(InstallStep.INSTALL_OPENCODE, StepStatus.Running)
             val opencode =
-                shell.runScript("${Proot.UBUNTU_SCRIPTS}/install-opencode.sh") { line ->
+                shell.runScript(
+                    "${Proot.UBUNTU_SCRIPTS}/install-opencode.sh",
+                    timeoutSeconds = 3600,
+                    pauseRequested = { pauseRequested.get() },
+                ) { line ->
                     appendLog(line)
                 }
             if (!opencode.success) {
@@ -359,8 +449,8 @@ class UbuntuInstaller(
                     InstallStep.INSTALL_OPENCODE,
                     AppError(
                         title = strings.get(R.string.installer_error_opencode_title),
-                        reason = opencode.stderr.take(400),
-                        step = "install-opencode"
+                        reason = failureDetail(opencode),
+                        step = "install-opencode",
                     ),
                 )
                 return
@@ -370,7 +460,11 @@ class UbuntuInstaller(
             // Step 8 — Claude Code
             setStepStatus(InstallStep.INSTALL_CLAUDE, StepStatus.Running)
             val claude =
-                shell.runScript("${Proot.UBUNTU_SCRIPTS}/install-claude.sh") { line ->
+                shell.runScript(
+                    "${Proot.UBUNTU_SCRIPTS}/install-claude.sh",
+                    timeoutSeconds = 3600,
+                    pauseRequested = { pauseRequested.get() },
+                ) { line ->
                     appendLog(line)
                 }
             if (!claude.success) {
@@ -378,8 +472,8 @@ class UbuntuInstaller(
                     InstallStep.INSTALL_CLAUDE,
                     AppError(
                         title = strings.get(R.string.installer_error_claude_title),
-                        reason = claude.stderr.take(400),
-                        step = "install-claude"
+                        reason = failureDetail(claude),
+                        step = "install-claude",
                     ),
                 )
                 return
@@ -388,7 +482,11 @@ class UbuntuInstaller(
 
             // Step 9 — health check
             setStepStatus(InstallStep.HEALTH_CHECK, StepStatus.Running)
-            val health = shell.exec(listOf("/bin/bash", "${Proot.UBUNTU_SCRIPTS}/healthcheck.sh"))
+            val health =
+                shell.exec(
+                    listOf("/bin/bash", "${Proot.UBUNTU_SCRIPTS}/healthcheck.sh"),
+                    pauseRequested = { pauseRequested.get() },
+                )
             if (!health.success) {
                 fail(
                     InstallStep.HEALTH_CHECK,
@@ -428,6 +526,20 @@ class UbuntuInstaller(
         } catch (e: PausedException) {
             appendLog("paused at ${e.downloadedBytes} bytes — state kept for resume")
             stateInternal.value = stateInternal.value.copy(running = false, paused = true)
+        } catch (e: ProcessPausedException) {
+            // Pause during a script step (5-9): the Shell watchdog killed the process. Persist
+            // the interrupted step so resume (even after process death) continues exactly here;
+            // dpkg-recover.sh heals any apt/dpkg debris before the next apt run.
+            val atStep = stateInternal.value.currentStep
+            if (atStep != null) {
+                resumableStep = atStep
+                paths.saveInstallResume(atStep.id)
+            }
+            appendLog(
+                "paused${if (atStep != null) " at step ${atStep.id}" else ""} — " +
+                    "progress kept, resume continues here"
+            )
+            stateInternal.value = stateInternal.value.copy(running = false, paused = true)
         } catch (e: kotlinx.coroutines.CancellationException) {
             stateInternal.value = stateInternal.value.copy(running = false)
         } catch (e: Exception) {
@@ -456,13 +568,14 @@ class UbuntuInstaller(
         stateInternal.value = stateInternal.value.copy(running = false, fatal = error.redacted)
     }
 
-    /** Restores the failed step from a previous process (plain file, survives process death). */
+    /** Restores the interrupted step from a previous process (plain file, survives process
+     *  death) — it may be a FAILED step or a step that was RUNNING when the app was killed. */
     private fun restoreResumableStep(): InstallStep? {
         val id = paths.loadInstallResume() ?: return null
         return InstallStep.ordered()
             .firstOrNull { it.id == id }
             ?.also {
-                appendLog("restored resume state from a previous run: failed at step ${it.id}")
+                appendLog("restored resume state from a previous run: stopped at step ${it.id}")
             }
     }
 

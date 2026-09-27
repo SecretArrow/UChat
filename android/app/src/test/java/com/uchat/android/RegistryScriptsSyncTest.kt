@@ -137,6 +137,33 @@ class RegistryScriptsSyncTest {
             "essentials must run noninteractive",
             essentials.contains("DEBIAN_FRONTEND=noninteractive"),
         )
+        assertTrue(
+            "essentials must heal an interrupted dpkg state before apt (v1.6.0 field report: " +
+                "'dpkg was interrupted, you must manually run dpkg --configure -a')",
+            essentials.contains("dpkg-recover.sh"),
+        )
+        assertTrue(
+            "essentials must retry the full apt install, not just downloads",
+            essentials.contains("install_ok"),
+        )
+        assertTrue(
+            "essentials must install apt-utils so debconf stops delaying package configuration",
+            essentials.contains("apt-utils"),
+        )
+
+        val recover = File(assetsUbuntu, "dpkg-recover.sh").readText()
+        assertTrue(
+            "dpkg-recover.sh must run 'dpkg --configure -a'",
+            recover.contains("dpkg --configure -a"),
+        )
+        assertTrue(
+            "dpkg-recover.sh must clear a corrupt transaction journal",
+            recover.contains("/var/lib/dpkg/updates"),
+        )
+        assertTrue(
+            "dpkg-recover.sh must remove stale package-manager locks",
+            recover.contains("/var/lib/dpkg/lock-frontend"),
+        )
 
         val runtimes = File(assetsUbuntu, "install-runtimes.sh").readText()
         assertTrue(

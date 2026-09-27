@@ -31,6 +31,8 @@
     <string name="action_export">Ekspor</string>
     <string name="action_pause">Jeda</string>
     <string name="action_resume">Lanjutkan</string>
+    <string name="install_pausing">Menjeda… menghentikan langkah saat ini dengan aman</string>
+    <string name="install_paused_hint">Dijeda — progres kamu tersimpan. Lanjutkan kapan saja (lanjutkan tidak pernah mengunduh ulang yang sudah ada di disk).</string>
     <string name="action_back">Kembali</string>
     <string name="action_done">Selesai</string>
     <string name="action_copied">Tersalin</string>
@@ -339,6 +341,7 @@
     <string name="installer_error_checksum_title">Checksum tidak cocok</string>
     <string name="installer_error_checksum_reason">Berkas %1$s yang diunduh tidak cocok dengan SHA-256 yang ditetapkan — unduhan korup.</string>
     <string name="installer_error_apt_title">apt gagal memasang paket</string>
+    <string name="installer_error_apt_space_reason">Ruang kosong hanya %1$s — memasang paket butuh setidaknya %2$s. Bersihkan penyimpanan, lalu coba lagi.</string>
     <string name="installer_error_runtime_title">Pemasangan runtime gagal</string>
     <string name="installer_error_opencode_title">Pemasangan OpenCode gagal</string>
     <string name="installer_error_claude_title">Pemasangan Claude Code gagal</string>
