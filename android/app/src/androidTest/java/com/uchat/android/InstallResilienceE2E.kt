@@ -1,5 +1,6 @@
 package com.uchat.android
 
+import android.system.ErrnoException
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.uchat.android.core.arch.DeviceAbi
@@ -14,7 +15,6 @@ import com.uchat.android.linux.exec.Shell
 import com.uchat.android.linux.install.ScriptInstaller
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
-import android.system.ErrnoException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -67,9 +67,11 @@ class InstallResilienceE2E {
         ScriptInstaller.install(context, paths)
     }
 
-    /** Raw proot invocation with custom extension flags — prints the errno of every syscall
-     *  dpkg's status write needs (open/create, hardlink, rename, symlink) plus ownership
-     *  views from inside the guest. Pure diagnostics for CI iteration. */
+    /**
+     * Raw proot invocation with custom extension flags — prints the errno of every syscall dpkg's
+     * status write needs (open/create, hardlink, rename, symlink) plus ownership views from inside
+     * the guest. Pure diagnostics for CI iteration.
+     */
     private fun runFsProbe(paths: UChatPaths, extraFlags: List<String>): String {
         val probe =
             """
@@ -82,7 +84,8 @@ class InstallResilienceE2E {
             ln -s status probe-sym 2>/dev/null && echo "symlink: OK" || echo "symlink: FAIL($?)"
             ls -ln | grep -E "status|probe|\.l2s" || true
             rm -f probe-create probe-link probe-mv-src probe-mv-dst probe-sym
-            """.trimIndent()
+            """
+                .trimIndent()
         val probeFile = File(paths.scriptsDir, "fs-probe.sh")
         probeFile.writeText("$probe\n")
         probeFile.setExecutable(true, false)
@@ -115,14 +118,15 @@ class InstallResilienceE2E {
                     )
                 }
         val env =
-            Proot.environment(paths, DeviceAbi.current())
-                .associate {
-                    val idx = it.indexOf('=')
-                    it.substring(0, idx) to it.substring(idx + 1)
-                }
-        val process = ProcessBuilder(argv).redirectErrorStream(true).apply {
-            environment().putAll(env)
-        }.start()
+            Proot.environment(paths, DeviceAbi.current()).associate {
+                val idx = it.indexOf('=')
+                it.substring(0, idx) to it.substring(idx + 1)
+            }
+        val process =
+            ProcessBuilder(argv)
+                .redirectErrorStream(true)
+                .apply { environment().putAll(env) }
+                .start()
         val out = process.inputStream.bufferedReader().readText()
         process.waitFor()
         return out
