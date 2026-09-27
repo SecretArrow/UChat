@@ -1,11 +1,14 @@
 package com.uchat.android.linux.exec
 
+import android.os.Process as AndroidProcess
 import com.uchat.android.core.arch.DeviceAbi
 import com.uchat.android.core.fs.UChatPaths
 import com.uchat.android.linux.Proot
 import java.io.File
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -37,8 +40,8 @@ class ProcessPausedException : Exception("process paused by user")
  * argument-array based (spec #64); commands are executed via `proot ... <cmd argv>` with a timeout.
  *
  * Pause support: when [exec] is given a [pauseRequested] predicate, a watchdog thread polls it and
- * terminates the process tree as soon as the user asks to pause. Without the predicate the behavior
- * is identical to previous releases.
+ * stops the process tree as soon as the user asks to pause. Without the predicate the behavior is
+ * identical to previous releases.
  */
 class Shell(private val paths: UChatPaths, private val abi: DeviceAbi) {
 
@@ -52,8 +55,20 @@ class Shell(private val paths: UChatPaths, private val abi: DeviceAbi) {
     ): ExecResult =
         withContext(Dispatchers.IO) {
             val argv = Proot.argv(paths, abi, command)
+            // The child is spawned through /system/bin/sh so it reports its own pid into a file
+            // just before `exec`-ing proot (exec keeps the pid). Java has no portable pid accessor
+            // at minSdk 26, and pause needs proot's pid to signal it directly.
+            val pidFile = File(paths.filesDir, "uchat-exec-${System.nanoTime()}.pid")
+            val wrappedArgv =
+                mutableListOf(
+                        "/system/bin/sh",
+                        "-c",
+                        "echo \$\$ > '${pidFile.absolutePath}'; exec \"\$@\"",
+                        "uchat",
+                    )
+                    .apply { addAll(argv) }
             val process =
-                ProcessBuilder(argv)
+                ProcessBuilder(wrappedArgv)
                     .directory(File(paths.filesDir, "/"))
                     .apply {
                         environment()
@@ -67,57 +82,95 @@ class Shell(private val paths: UChatPaths, private val abi: DeviceAbi) {
                     }
                     .start()
 
-            val stdout = StringBuilder()
-            val stderr = StringBuilder()
-            // Daemon reader threads that NEVER let exceptions escape: when a process is
-            // killed on pause, its pipe can be held open by orphaned grandchildren or closed
-            // under the reader (InterruptedIOException) — an uncaught exception here would
-            // crash the whole app process (seen on the emulator in the first CI round).
-            val outThread = Thread {
-                try {
-                    process.inputStream.bufferedReader().forEachLine { line ->
-                        stdout.appendLine(line)
-                        onLine?.invoke(line)
-                    }
-                } catch (_: Exception) {
-                    // stream torn down — whatever was read is already captured
+            var prootPid = 0
+            run {
+                var attempts = 0
+                while (prootPid == 0 && attempts < 20) {
+                    prootPid =
+                        pidFile.takeIf { it.isFile }?.readText()?.trim()?.toIntOrNull() ?: 0
+                    if (prootPid == 0) Thread.sleep(50)
+                    attempts++
                 }
             }
-            val errThread = Thread {
-                try {
-                    process.errorStream.bufferedReader().forEachLine { line ->
-                        stderr.appendLine(line)
-                        onLine?.invoke(line)
+            pidFile.delete()
+
+            val stdout = StringBuilder()
+            val stderr = StringBuilder()
+            // Daemon reader threads that NEVER let exceptions escape: when a process is killed
+            // on pause its pipe can be closed under the reader (InterruptedIOException) — an
+            // uncaught exception here would crash the whole app process (seen on CI).
+            val outThread =
+                Thread {
+                    try {
+                        process.inputStream.bufferedReader().forEachLine { line ->
+                            stdout.appendLine(line)
+                            onLine?.invoke(line)
+                        }
+                    } catch (_: Exception) {
+                        // stream torn down — whatever was read is already captured
                     }
-                } catch (_: Exception) {}
-            }
+                }
+            val errThread =
+                Thread {
+                    try {
+                        process.errorStream.bufferedReader().forEachLine { line ->
+                            stderr.appendLine(line)
+                            onLine?.invoke(line)
+                        }
+                    } catch (_: Exception) {}
+                }
             outThread.isDaemon = true
             errThread.isDaemon = true
             outThread.start()
             errThread.start()
 
-            // Pause watchdog: poll the flag while the process runs; on pause, SIGTERM first so
-            // apt/dpkg can flush, then SIGKILL after a short grace period. The install scripts
-            // recover an interrupted dpkg database on the next resume, so the kill is safe.
+            // Single waitpid consumer: ONLY the reaper waits on the child. Process.isAlive()
+            // uses WNOHANG and can reap the zombie first, after which waitFor() blocks forever
+            // (that exact race burned the first CI round — a pause took the full 60s timeout).
+            val exited = CountDownLatch(1)
+            val exitCode = AtomicInteger(Int.MIN_VALUE)
+            val reaper =
+                Thread {
+                    try {
+                        exitCode.set(process.waitFor())
+                    } catch (_: InterruptedException) {}
+                    exited.countDown()
+                }
+            reaper.isDaemon = true
+            reaper.start()
+
+            // Pause watchdog: poll the flag while the process runs; on pause, SIGQUIT proot —
+            // it IGNORES SIGTERM entirely (measured), but its SIGQUIT path kills the whole
+            // tracee tree (bash/apt/dpkg) and exits, so nothing keeps draining data after a
+            // pause and no pipe-holding orphans are left behind. SIGKILL is the last resort.
             val paused = AtomicBoolean(false)
             val watchdog =
                 pauseRequested?.let { check ->
                     Thread {
                             try {
-                                while (!check() && process.isAlive) Thread.sleep(250)
-                                if (process.isAlive) {
+                                var stopped = false
+                                while (!check()) {
+                                    if (exited.await(250, TimeUnit.MILLISECONDS)) {
+                                        stopped = true
+                                        break
+                                    }
+                                }
+                                if (!stopped && !exited.await(0, TimeUnit.MILLISECONDS)) {
                                     paused.set(true)
+                                    if (prootPid > 0) {
+                                        AndroidProcess.sendSignal(prootPid, 3) // SIGQUIT
+                                    }
                                     process.destroy()
                                     var waited = 0
-                                    while (process.isAlive && waited < 4000) {
-                                        Thread.sleep(200)
+                                    while (waited < 4000 &&
+                                        !exited.await(200, TimeUnit.MILLISECONDS)) {
                                         waited += 200
                                     }
-                                    if (process.isAlive) process.destroyForcibly()
+                                    if (!exited.await(0, TimeUnit.MILLISECONDS)) {
+                                        process.destroyForcibly()
+                                    }
                                 }
-                            } catch (_: InterruptedException) {
-                                Thread.currentThread().interrupt()
-                            }
+                            } catch (_: InterruptedException) {}
                         }
                         .apply {
                             isDaemon = true
@@ -125,13 +178,7 @@ class Shell(private val paths: UChatPaths, private val abi: DeviceAbi) {
                         }
                 }
 
-            val finished =
-                try {
-                    process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
-                } catch (_: InterruptedException) {
-                    Thread.currentThread().interrupt()
-                    false
-                }
+            val finished = exited.await(timeoutSeconds, TimeUnit.SECONDS)
             watchdog?.interrupt()
             if (paused.get()) {
                 outThread.join(5000)
@@ -148,7 +195,8 @@ class Shell(private val paths: UChatPaths, private val abi: DeviceAbi) {
             }
             outThread.join(5000)
             errThread.join(5000)
-            ExecResult(process.exitValue(), stdout.toString(), stderr.toString())
+            val code = exitCode.get().let { if (it == Int.MIN_VALUE) -1 else it }
+            ExecResult(code, stdout.toString(), stderr.toString())
         }
 
     /**
