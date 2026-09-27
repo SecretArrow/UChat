@@ -90,7 +90,7 @@ class SessionLifecycleE2E {
                 outputTap = { id, bytes, len ->
                     if (len > 0 && id == trackedId.get()) {
                         replay.offer(id, bytes, len)
-                        tapped.addAndGet(len)
+                        tapped.addAndGet(len.toLong())
                     }
                 }
             )
