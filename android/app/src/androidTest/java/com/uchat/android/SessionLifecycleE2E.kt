@@ -82,19 +82,21 @@ class SessionLifecycleE2E {
 
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val replay = TerminalReplayCache()
-        var tapped = 0L
+        val tapped = java.util.concurrent.atomic.AtomicLong(0)
+        val trackedId = java.util.concurrent.atomic.AtomicLong(0)
         val manager =
             ProcessManager(
                 scope,
-                outputTap = { _, bytes, len ->
-                    if (len > 0) {
-                        replay.offer(1L, bytes, len)
-                        tapped += len
+                outputTap = { id, bytes, len ->
+                    if (len > 0 && id == trackedId.get()) {
+                        replay.offer(id, bytes, len)
+                        tapped.addAndGet(len)
                     }
                 }
             )
 
-        // 1. Real pty session (the same path the UI uses).
+        // 1. Real pty session (the same path the UI uses). Session ids are process-global,
+        // so the test must never assume a fixed numeric id.
         val session =
             Proot.launchSession(
                 paths = paths,
@@ -104,15 +106,16 @@ class SessionLifecycleE2E {
                 workingDirInUbuntu = Proot.UBUNTU_HOME,
                 scope = scope,
             )
-        assertEquals(1L, session.id)
+        val sid = session.id
+        trackedId.set(sid)
         manager.register(session)
 
         withTimeout(30_000) { while (session.state != SessionState.RUNNING) delay(100) }
 
         // 2. Output must flow into the replay cache (backend + tap wiring intact).
         session.write("echo UCHAT_CLOSE_E2E_9154\r\n".toByteArray())
-        withTimeout(15_000) { while (tapped == 0L) delay(100) }
-        assertTrue("replay cache must hold output", replay.snapshot(1L).isNotEmpty())
+        withTimeout(15_000) { while (tapped.get() == 0L) delay(100) }
+        assertTrue("replay cache must hold output", replay.snapshot(sid).isNotEmpty())
 
         // 3. User-style stop: the session must reach EXITED on its own.
         session.stop()
@@ -127,8 +130,8 @@ class SessionLifecycleE2E {
         delay(50)
         manager.reapExited(graceMillis = 0L)
         assertEquals(0, manager.all.size)
-        replay.remove(1L)
-        assertEquals(ByteArray(0), replay.snapshot(1L))
+        replay.remove(sid)
+        assertEquals(ByteArray(0), replay.snapshot(sid))
     }
 
     @Test

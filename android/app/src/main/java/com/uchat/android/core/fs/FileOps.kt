@@ -9,11 +9,9 @@ package com.uchat.android.core.fs
  */
 object FileOps {
 
-    /** Paths inside Ubuntu that must never be removed by the file manager. */
-    private val PROTECTED =
+    /** Paths inside Ubuntu that must never be removed by the file manager (prefix scope). */
+    private val PREFIX_PROTECTED =
         setOf(
-            "/",
-            "/root",
             "/usr",
             "/bin",
             "/sbin",
@@ -27,6 +25,13 @@ object FileOps {
             "/sys",
             "/system",
             "/data",
+        )
+
+    /** UChat-owned mount points: protected themselves, children are fair game. */
+    private val EXACT_PROTECTED =
+        setOf(
+            "/",
+            "/root",
             "/root/workspace",
             "/root/downloads",
             "/root/shared",
@@ -38,7 +43,8 @@ object FileOps {
         val clean = path.trim().trimEnd('/')
         if (clean.isEmpty()) return false
         if (clean.split('/').any { it == ".." }) return false
-        return clean !in PROTECTED
+        if (clean in EXACT_PROTECTED) return false
+        return PREFIX_PROTECTED.none { clean == it || clean.startsWith("$it/") }
     }
 
     /** Shell-quotes a single argument for `bash -c` (single-quote wrapping). */

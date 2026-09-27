@@ -17,6 +17,8 @@ class FileOpsTest {
         assertFalse(FileOps.isDeletable("/root"))
         assertFalse(FileOps.isDeletable("/usr"))
         assertFalse(FileOps.isDeletable("/etc"))
+        assertFalse(FileOps.isDeletable("/usr/bin"))
+        assertFalse(FileOps.isDeletable("/var/lib/apt"))
         assertFalse(FileOps.isDeletable("/root/workspace"))
         assertFalse(FileOps.isDeletable("/root/downloads"))
         assertFalse(FileOps.isDeletable("/root/.uchat-scripts"))
@@ -32,7 +34,8 @@ class FileOpsTest {
 
     @Test
     fun `single quotes are escaped correctly`() {
-        assertEquals("'it''s'", FileOps.quote("it's"))
+        // POSIX single-quote escaping: close quote, escaped quote, reopen.
+        assertEquals("'it'\\''s'", FileOps.quote("it's"))
         assertEquals("''", FileOps.quote(""))
     }
 
