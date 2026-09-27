@@ -14,6 +14,7 @@ import com.uchat.android.linux.exec.Shell
 import com.uchat.android.linux.install.ScriptInstaller
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
+import android.system.ErrnoException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -66,6 +67,67 @@ class InstallResilienceE2E {
         ScriptInstaller.install(context, paths)
     }
 
+    /** Raw proot invocation with custom extension flags — prints the errno of every syscall
+     *  dpkg's status write needs (open/create, hardlink, rename, symlink) plus ownership
+     *  views from inside the guest. Pure diagnostics for CI iteration. */
+    private fun runFsProbe(paths: UChatPaths, extraFlags: List<String>): String {
+        val probe =
+            """
+            cd /var/lib/dpkg || exit 9
+            echo "guest id -u: $(id -u 2>&1)"
+            : > probe-create 2>/dev/null && echo "create:  OK" || echo "create:  FAIL($?)"
+            ln -f status probe-link 2>/dev/null && echo "link:    OK" || echo "link:    FAIL($?)"
+            : > probe-mv-src
+            mv probe-mv-src probe-mv-dst 2>/dev/null && echo "rename:  OK" || echo "rename:  FAIL($?)"
+            ln -s status probe-sym 2>/dev/null && echo "symlink: OK" || echo "symlink: FAIL($?)"
+            ls -ln | grep -E "status|probe|\.l2s" || true
+            rm -f probe-create probe-link probe-mv-src probe-mv-dst probe-sym
+            """.trimIndent()
+        val probeFile = File(paths.scriptsDir, "fs-probe.sh")
+        probeFile.writeText("$probe\n")
+        probeFile.setExecutable(true, false)
+        probeFile.setReadable(true, false)
+        val argv =
+            mutableListOf(
+                    paths.effectiveProotBinary.absolutePath,
+                    "--kill-on-exit",
+                    "-0",
+                )
+                .apply { addAll(extraFlags) }
+                .apply {
+                    addAll(
+                        listOf(
+                            "-w",
+                            Proot.UBUNTU_HOME,
+                            "-r",
+                            paths.ubuntuRoot.absolutePath,
+                            "-b",
+                            "/dev",
+                            "-b",
+                            "/proc",
+                            "-b",
+                            "/sys",
+                            "-b",
+                            "${paths.scriptsDir.absolutePath}:${Proot.UBUNTU_SCRIPTS}",
+                            "/bin/bash",
+                            "${Proot.UBUNTU_SCRIPTS}/fs-probe.sh",
+                        )
+                    )
+                }
+        val env =
+            Proot.environment(paths, DeviceAbi.current())
+                .associate {
+                    val idx = it.indexOf('=')
+                    it.substring(0, idx) to it.substring(idx + 1)
+                }
+        val process = ProcessBuilder(argv).redirectErrorStream(true).apply {
+            environment().putAll(env)
+        }.start()
+        val out = process.inputStream.bufferedReader().readText()
+        process.waitFor()
+        return out
+    }
+
     @Test
     fun dpkgRecoveryHealsInterruptedPackageState() = runBlocking {
         val app = context.applicationContext as com.uchat.android.UChatApp
@@ -73,6 +135,31 @@ class InstallResilienceE2E {
         val paths = UChatPaths(context)
         paths.ensureDirs()
         ensureRootfs(paths)
+
+        // ---- Ground-truth FS probe (pure diagnostics, never fails the test) ----
+        try {
+            println("[e2e-probe] with l2s:\n" + runFsProbe(paths, listOf("--link2symlink")))
+            println("[e2e-probe] without l2s:\n" + runFsProbe(paths, emptyList()))
+            val status = File(paths.ubuntuRoot, "var/lib/dpkg/status")
+            val dir = File(paths.ubuntuRoot, "var/lib/dpkg")
+            val st = android.system.Os.lstat(status.absolutePath)
+            val dt = android.system.Os.lstat(dir.absolutePath)
+            println(
+                "[e2e-probe] host status uid=${st.st_uid} " +
+                    "mode=${Integer.toOctalString(st.st_mode and 0xFFF)}"
+            )
+            println(
+                "[e2e-probe] host dir   uid=${dt.st_uid} " +
+                    "mode=${Integer.toOctalString(dt.st_mode and 0xFFF)}"
+            )
+            android.system.Os.link(status.absolutePath, File(dir, "probe-host-link").absolutePath)
+            println("[e2e-probe] host link: OK")
+            File(dir, "probe-host-link").delete()
+        } catch (e: ErrnoException) {
+            println("[e2e-probe] host probe errno=${e.errno}: ${e.message}")
+        } catch (e: Exception) {
+            println("[e2e-probe] host probe failed: $e")
+        }
 
         val shell = Shell(paths, DeviceAbi.current())
         val dpkgUpdates = File(paths.ubuntuRoot, "var/lib/dpkg/updates")
