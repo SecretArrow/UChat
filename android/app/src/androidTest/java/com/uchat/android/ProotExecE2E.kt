@@ -46,7 +46,7 @@ class ProotExecE2E {
             "libproot.so must be a real binary (>100KB), got ${proot.length()} bytes",
             proot.length() > 100_000,
         )
-        // proot's companion libs must be extracted next to it.
+        // proot's companion libs and its loader must be extracted next to it.
         assertTrue(
             "libtalloc.so must be bundled next to proot",
             File(libDir, "libtalloc.so").isFile,
@@ -55,13 +55,19 @@ class ProotExecE2E {
             "libandroid-shmem.so must be bundled next to proot",
             File(libDir, "libandroid-shmem.so").isFile,
         )
+        assertTrue(
+            "libprootloader.so must be bundled (guest execve needs it)",
+            File(libDir, "libprootloader.so").isFile,
+        )
     }
 
     /** Host-side env every proot invocation needs on Android (mirrors Proot.environment). */
     private fun prootEnv(process: ProcessBuilder) {
-        process.environment()["LD_LIBRARY_PATH"] = context.applicationInfo.nativeLibraryDir
+        val libDir = context.applicationInfo.nativeLibraryDir
+        process.environment()["LD_LIBRARY_PATH"] = libDir
         process.environment()["PROOT_TMP_DIR"] = context.cacheDir.absolutePath
         process.environment()["PROOT_NO_SECCOMP"] = "1"
+        process.environment()["PROOT_LOADER"] = "$libDir/libprootloader.so"
     }
 
     @Test

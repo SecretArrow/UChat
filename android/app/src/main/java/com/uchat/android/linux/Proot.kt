@@ -88,8 +88,15 @@ object Proot {
                 "PROOT_TMP_DIR" to (paths?.cacheDir?.absolutePath ?: "/tmp"),
             )
         // The bundled proot (Termux/NDK build) needs its companion libs (libtalloc.so,
-        // libandroid-shmem.so), which live next to it in nativeLibraryDir.
-        paths?.nativeLibDir?.let { libDir -> base["LD_LIBRARY_PATH"] = libDir.absolutePath }
+        // libandroid-shmem.so) and its LOADER binaries, which live next to it in
+        // nativeLibraryDir. Without PROOT_LOADER the guest execve fails with ENOENT.
+        paths?.nativeLibDir?.let { libDir ->
+            base["LD_LIBRARY_PATH"] = libDir.absolutePath
+            val loader = File(libDir, "libprootloader.so")
+            if (loader.isFile) base["PROOT_LOADER"] = loader.absolutePath
+            val loader32 = File(libDir, "libprootloader32.so")
+            if (loader32.isFile) base["PROOT_LOADER_32"] = loader32.absolutePath
+        }
         base.putAll(extra)
         return base.map { (k, v) -> "$k=$v" }
     }
