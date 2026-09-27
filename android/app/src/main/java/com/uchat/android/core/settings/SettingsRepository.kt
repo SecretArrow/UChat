@@ -5,7 +5,6 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -79,7 +78,6 @@ class SettingsRepository(private val context: Context) {
         val FIXED_COLS = intPreferencesKey("terminal_fixed_cols")
         val FIXED_ROWS = intPreferencesKey("terminal_fixed_rows")
         val APP_THEME_MODE = stringPreferencesKey("app_theme_mode")
-        val FONT_SCALE = floatPreferencesKey("unused_placeholder")
     }
 
     val settings: Flow<UChatSettings> =

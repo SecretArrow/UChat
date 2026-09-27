@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Keyboard
@@ -88,6 +89,8 @@ fun TerminalScreenView(
     onSelectSession: (Long) -> Unit,
     onCreateSession: () -> Unit,
     onStopSession: (PtySession) -> Unit,
+    onCloseSession: (PtySession) -> Unit,
+    onCloseAllSessions: () -> Unit,
     onSelectLayout: (String) -> Unit,
     onOpenEditor: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -187,6 +190,7 @@ fun TerminalScreenView(
                 activeSession = activeSession,
                 onSelect = onSelectSession,
                 onStop = onStopSession,
+                onClose = onCloseSession,
                 onCreate = onCreateSession,
                 overflow = {
                     IconButton(onClick = { overflowOpen = true }) {
@@ -254,6 +258,14 @@ fun TerminalScreenView(
                             onClick = {
                                 overflowOpen = false
                                 onCreateSession()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.terminal_close_all)) },
+                            leadingIcon = { Icon(Icons.Filled.Close, contentDescription = null) },
+                            onClick = {
+                                overflowOpen = false
+                                onCloseAllSessions()
                             },
                         )
                         DropdownMenuItem(
@@ -384,6 +396,7 @@ private fun SessionTabsRow(
     activeSession: PtySession?,
     onSelect: (Long) -> Unit,
     onStop: (PtySession) -> Unit,
+    onClose: (PtySession) -> Unit,
     onCreate: () -> Unit,
     overflow: @Composable () -> Unit,
 ) {
@@ -418,12 +431,16 @@ private fun SessionTabsRow(
                         maxLines = 1,
                     )
                     IconButton(
-                        onClick = { onStop(session) },
+                        onClick = { if (running) onStop(session) else onClose(session) },
                         modifier = Modifier.size(22.dp).padding(start = 2.dp),
                     ) {
                         Icon(
-                            Icons.Filled.StopCircle,
-                            contentDescription = stringResource(R.string.terminal_stop_session),
+                            if (running) Icons.Filled.StopCircle else Icons.Filled.Close,
+                            contentDescription =
+                                stringResource(
+                                    if (running) R.string.terminal_stop_session
+                                    else R.string.terminal_close_session
+                                ),
                             tint = TerminalPalette.ForegroundDim,
                             modifier = Modifier.size(14.dp),
                         )

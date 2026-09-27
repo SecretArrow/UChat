@@ -142,8 +142,15 @@
     <string name="files_open_terminal_here">Open terminal here</string>
     <string name="files_copy_path">Copy path</string>
     <string name="files_delete_confirm">Delete %1$s?</string>
+    <string name="files_delete_irreversible">This cannot be undone.</string>
     <string name="files_import_too_large">File is too large.</string>
     <string name="files_parent_dir">Workspace</string>
+    <string name="files_actions">Actions</string>
+    <string name="files_edit">Edit</string>
+    <string name="files_share">Share</string>
+    <string name="files_name_label">Name</string>
+    <string name="files_op_failed">Operation failed</string>
+    <string name="files_protected_path">This path is protected and cannot be deleted.</string>
 
     <!-- Processes -->
     <string name="processes_title">Processes</string>
@@ -154,6 +161,7 @@
     <string name="processes_view_logs">View logs</string>
     <string name="processes_stop_all">Stop all</string>
     <string name="processes_service_notification">%1$d background process(es)</string>
+    <string name="service_starting">UChat is starting…</string>
 
     <!-- Tools -->
     <string name="tools_title">AI Tools</string>
@@ -171,6 +179,17 @@
     <string name="tools_env_model">Model</string>
     <string name="tools_env_provider">Provider</string>
     <string name="tools_env_hint_secret">Stored encrypted with Android Keystore. Never logged or exported.</string>
+
+    <!-- Secrets / API keys -->
+    <string name="secrets_title">API keys</string>
+    <string name="secrets_intro">Keys are stored encrypted (Android Keystore), injected as environment variables into every Ubuntu session, and never logged. Tools like OpenCode, Claude Code and gh pick them up automatically.</string>
+    <string name="secrets_opencode">OpenCode — API key</string>
+    <string name="secrets_claude">Claude Code — API key</string>
+    <string name="secrets_github">GitHub — token</string>
+    <string name="secrets_status_set">Configured</string>
+    <string name="secrets_status_unset">Not set</string>
+    <string name="secrets_value_hint">Paste value</string>
+    <string name="secrets_delete_confirm">Remove this key?</string>
 
     <!-- Servers -->
     <string name="servers_title">Local servers</string>
@@ -247,6 +266,8 @@
     <string name="terminal_no_sessions">No active sessions</string>
     <string name="terminal_no_sessions_hint">Start a session to open a real Ubuntu shell</string>
     <string name="terminal_stop_session">Stop session</string>
+    <string name="terminal_close_session">Close session</string>
+    <string name="terminal_close_all">Close all sessions</string>
     <string name="terminal_editor">Edit extra keys</string>
     <string name="terminal_settings">Terminal settings</string>
     <string name="terminal_exited">exited (%1$d)</string>

@@ -31,6 +31,11 @@ class TerminalReplayCache(private val maxBytesPerSession: Int = DEFAULT_MAX_BYTE
         buffers.remove(sessionId)
     }
 
+    /** Drops every buffered replay (used when the user closes all terminal sessions). */
+    fun clearAll() {
+        buffers.keys.forEach { key -> buffers.remove(key) }
+    }
+
     /** Fixed-capacity byte ring built from chunks. */
     class ReplayBuffer(private val maxBytes: Int) {
         private val chunks = ArrayDeque<ByteArray>()

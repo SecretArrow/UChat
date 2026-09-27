@@ -1,9 +1,19 @@
 package com.uchat.android.ui
 
+import android.Manifest
 import android.app.Activity
+import android.app.ActivityManager
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
@@ -31,9 +41,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import com.uchat.android.R
+import com.uchat.android.core.arch.DeviceAbi
+import com.uchat.android.core.arch.DeviceSummary
+import com.uchat.android.core.arch.NetworkMonitor
+import com.uchat.android.core.fs.FileOps
 import com.uchat.android.core.log.Logs
 import com.uchat.android.core.settings.UChatSettings
+import com.uchat.android.data.db.ProcessEntity
 import com.uchat.android.data.registry.ToolEntry
+import com.uchat.android.data.repo.SecretsRepository
 import com.uchat.android.di.AppContainer
 import com.uchat.android.linux.Proot
 import com.uchat.android.linux.PtySession
@@ -73,7 +89,8 @@ private enum class Overlay {
     SETTINGS,
     DIAGNOSTICS,
     EXTRA_KEYS,
-    TERMINAL_SETTINGS
+    TERMINAL_SETTINGS,
+    API_KEYS
 }
 
 internal enum class BackAction {
@@ -128,6 +145,35 @@ fun AppRoot(container: AppContainer) {
     var toolsAutoChecked by rememberSaveable { mutableStateOf(false) }
     var backPressedAt by rememberSaveable { mutableLongStateOf(0L) }
 
+    // Real network status for the Home dashboard (was hardcoded "Connected").
+    var networkConnected by remember { mutableStateOf(false) }
+
+    // Restore-after-reboot bookkeeping: attempt once per process, never in a loop.
+    var restoreAttempted by rememberSaveable { mutableStateOf(false) }
+    val recordedExits = remember { java.util.concurrent.ConcurrentHashMap.newKeySet<Long>() }
+
+    // Built-in text editor state for the Files tab (guest path + buffered content).
+    var editTarget by remember { mutableStateOf<String?>(null) }
+    var editText by remember { mutableStateOf("") }
+
+    val deviceSummary = remember { buildDeviceSummary(context, container.abi) }
+
+    // Android 13+ needs a runtime grant before the persistent notification can be shown.
+    val notifPermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+
+    fun refreshFiles() {
+        listFiles(container, filesDir, settings.showHiddenFiles, { filesLoading = it }) {
+            fileEntries = it
+        }
+    }
+
+    fun toastOp(ok: Boolean) {
+        if (!ok) {
+            Toast.makeText(context, R.string.files_op_failed, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     // Back navigation: overlays and non-home tabs are popped first; the app only exits from the
     // HOME root, and even then requires a second press within 2s so a running terminal session
     // can never be lost by an accidental back (user requirement: exit ONLY from main screen).
@@ -164,26 +210,86 @@ fun AppRoot(container: AppContainer) {
     LaunchedEffect(Unit) {
         while (true) {
             sessionsFlow.value = container.processManager.all
+            networkConnected = NetworkMonitor.isOnline(context)
+            // Auto-close dead tabs (EXITED > grace window, FAILED immediately) so pty master
+            // FDs are released and the tab row never fills up with zombies.
+            container.processManager.reapExited()
+            // A session that exited on its own must not be restored after reboot.
+            container.processManager.all
+                .filter { it.state == SessionState.EXITED }
+                .forEach { session ->
+                    if (recordedExits.add(session.id)) {
+                        container.database.processDao().deleteBySessionId(session.id)
+                    }
+                }
             delay(1000)
         }
     }
 
     val activeSession = sessionsState.firstOrNull { it.id == activeSessionId }
 
-    // Foreground service while something is running (spec #9)
-    LaunchedEffect(sessionsState.count { it.state == SessionState.RUNNING }) {
+    // Foreground service while something is running (spec #9) — and ONLY then. The service also
+    // stops itself now, so the notification no longer lingers announcing "0 background processes".
+    val runningCount = sessionsState.count { it.state == SessionState.RUNNING }
+    LaunchedEffect(
+        runningCount,
+        settings.persistentNotification,
+        container.paths.isUbuntuInstalled,
+    ) {
         if (
             container.paths.isUbuntuInstalled &&
-                sessionsState.any { it.state == SessionState.RUNNING }
+                runningCount > 0 &&
+                settings.persistentNotification
         ) {
+            if (
+                Build.VERSION.SDK_INT >= 33 &&
+                    androidx.core.content.ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.POST_NOTIFICATIONS,
+                    ) !=
+                        android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
             UChatService.start(container.appContext)
+        } else {
+            UChatService.stop(container.appContext)
         }
     }
 
-    // Initial listing once Ubuntu exists
-    LaunchedEffect(container.paths.isUbuntuInstalled) {
+    // "Restore background sessions after reboot" (spec #25) — now actually functional: the rows
+    // with autoRestart=1 are exactly the sessions the device killed; relaunch each of them once.
+    LaunchedEffect(settings.restoreSessionsAfterReboot, container.paths.isUbuntuInstalled) {
+        if (
+            restoreAttempted ||
+                !settings.restoreSessionsAfterReboot ||
+                !container.paths.isUbuntuInstalled
+        ) {
+            return@LaunchedEffect
+        }
+        restoreAttempted = true
+        try {
+            container.database.processDao().restorable().forEach { row ->
+                launchCommand(
+                    container,
+                    row.label,
+                    row.command.split(" "),
+                    row.workingDirectory,
+                    restore = true,
+                ) { }
+                container.database.processDao().deleteBySessionId(row.sessionId)
+            }
+        } catch (e: Exception) {
+            Logs.app("session restore failed: ${e.message}")
+        }
+    }
+
+    // Initial listing once Ubuntu exists — re-listed when the hidden-files preference flips.
+    LaunchedEffect(container.paths.isUbuntuInstalled, settings.showHiddenFiles) {
         if (container.paths.isUbuntuInstalled) {
-            listFiles(container, filesDir, { filesLoading = it }) { fileEntries = it }
+            listFiles(container, filesDir, settings.showHiddenFiles, { filesLoading = it }) {
+                fileEntries = it
+            }
         }
     }
 
@@ -227,13 +333,14 @@ fun AppRoot(container: AppContainer) {
                                 runningProcesses =
                                     sessionsState.count { it.state == SessionState.RUNNING },
                                 projectCount = projects.size,
-                                networkConnected = true,
+                                networkConnected = networkConnected,
                                 onOpenTerminal = { tab = Tab.TERMINAL },
                                 onLaunchOpenCode = {
                                     launchCommand(
                                         container,
                                         "OpenCode",
                                         listOf("opencode"),
+                                        restore = settings.restoreSessionsAfterReboot,
                                     ) { id ->
                                         activeSessionId = id
                                         tab = Tab.TERMINAL
@@ -244,6 +351,7 @@ fun AppRoot(container: AppContainer) {
                                         container,
                                         "Claude",
                                         listOf("claude"),
+                                        restore = settings.restoreSessionsAfterReboot,
                                     ) { id ->
                                         activeSessionId = id
                                         tab = Tab.TERMINAL
@@ -259,10 +367,39 @@ fun AppRoot(container: AppContainer) {
                             projects = projects,
                             onCreate = { name ->
                                 scope.launch {
-                                    container.projectsRepository.create(
-                                        name,
-                                        Proot.UBUNTU_WORKSPACE + "/projects/" + name,
-                                    )
+                                    // The folder must REALLY exist before the record does —
+                                    // otherwise "Open terminal" lands in a missing directory.
+                                    val path = Proot.UBUNTU_WORKSPACE + "/projects/" + name
+                                    val made =
+                                        try {
+                                            container.shell
+                                                .exec(
+                                                    listOf("/bin/bash", "-c", FileOps.mkdir(path)),
+                                                    timeoutSeconds = 30,
+                                                )
+                                                .success
+                                        } catch (e: Exception) {
+                                            Logs.app("mkdir project failed: ${e.message}")
+                                            false
+                                        }
+                                    if (!made) {
+                                        Toast.makeText(
+                                                context,
+                                                R.string.files_op_failed,
+                                                Toast.LENGTH_SHORT,
+                                            )
+                                            .show()
+                                        return@launch
+                                    }
+                                    val result = container.projectsRepository.create(name, path)
+                                    if (result.isFailure) {
+                                        Toast.makeText(
+                                                context,
+                                                R.string.projects_invalid_name,
+                                                Toast.LENGTH_SHORT,
+                                            )
+                                            .show()
+                                    }
                                 }
                             },
                             onOpenTerminal = { project ->
@@ -272,6 +409,7 @@ fun AppRoot(container: AppContainer) {
                                     "Terminal",
                                     listOf("/bin/bash", "-l"),
                                     project.pathInUbuntu,
+                                    restore = settings.restoreSessionsAfterReboot,
                                 ) { id ->
                                     activeSessionId = id
                                     tab = Tab.TERMINAL
@@ -283,6 +421,7 @@ fun AppRoot(container: AppContainer) {
                                     "OpenCode",
                                     listOf("opencode"),
                                     project.pathInUbuntu,
+                                    restore = settings.restoreSessionsAfterReboot,
                                 ) { id ->
                                     activeSessionId = id
                                     tab = Tab.TERMINAL
@@ -294,6 +433,7 @@ fun AppRoot(container: AppContainer) {
                                     "Claude",
                                     listOf("claude"),
                                     project.pathInUbuntu,
+                                    restore = settings.restoreSessionsAfterReboot,
                                 ) { id ->
                                     activeSessionId = id
                                     tab = Tab.TERMINAL
@@ -313,8 +453,12 @@ fun AppRoot(container: AppContainer) {
                             replayCache = container.replayCache,
                             onSelectSession = { id -> activeSessionId = id },
                             onCreateSession = {
-                                launchCommand(container, "Terminal", listOf("/bin/bash", "-l")) { id
-                                    ->
+                                launchCommand(
+                                    container,
+                                    "Terminal",
+                                    listOf("/bin/bash", "-l"),
+                                    restore = settings.restoreSessionsAfterReboot,
+                                ) { id ->
                                     activeSessionId = id
                                 }
                             },
@@ -324,6 +468,27 @@ fun AppRoot(container: AppContainer) {
                                     activeSessionId =
                                         sessionsState.firstOrNull { it.id != session.id }?.id
                                 }
+                            },
+                            onCloseSession = { session ->
+                                // CLOSE (user request): stop if needed, release the pty FD, drop
+                                // the replay buffer and remove the tab — the real end of a session.
+                                container.processManager.remove(session.id)
+                                container.replayCache.remove(session.id)
+                                scope.launch {
+                                    container.database.processDao().deleteBySessionId(session.id)
+                                }
+                                if (session.id == activeSessionId) {
+                                    activeSessionId =
+                                        sessionsState.firstOrNull { it.id != session.id }?.id
+                                }
+                            },
+                            onCloseAllSessions = {
+                                container.processManager.closeAll()
+                                container.replayCache.clearAll()
+                                scope.launch {
+                                    container.database.processDao().deleteAll()
+                                }
+                                activeSessionId = null
                             },
                             onSelectLayout = { id -> container.extraKeysStore.selectLayout(id) },
                             onOpenEditor = { overlay = Overlay.EXTRA_KEYS },
@@ -335,20 +500,17 @@ fun AppRoot(container: AppContainer) {
                             entries = fileEntries,
                             currentDir = filesDir,
                             loading = filesLoading,
+                            showHidden = settings.showHiddenFiles,
                             onNavigate = { name ->
                                 filesDir = normalizePath(filesDir, name)
-                                listFiles(container, filesDir, { filesLoading = it }) {
-                                    fileEntries = it
-                                }
+                                refreshFiles()
                             },
                             onNavigateParent = {
                                 filesDir =
                                     filesDir.substringBeforeLast('/').ifEmpty {
                                         Proot.UBUNTU_WORKSPACE
                                     }
-                                listFiles(container, filesDir, { filesLoading = it }) {
-                                    fileEntries = it
-                                }
+                                refreshFiles()
                             },
                             onOpenTerminalHere = { dir ->
                                 launchCommand(
@@ -356,16 +518,115 @@ fun AppRoot(container: AppContainer) {
                                     "Terminal",
                                     listOf("/bin/bash", "-l"),
                                     dir,
+                                    restore = settings.restoreSessionsAfterReboot,
                                 ) { id ->
                                     activeSessionId = id
                                     tab = Tab.TERMINAL
                                 }
                             },
                             onCompress = { dir -> compressDir(container, dir) },
-                            onRefresh = {
-                                listFiles(container, filesDir, { filesLoading = it }) {
-                                    fileEntries = it
+                            onRefresh = { refreshFiles() },
+                            onToggleHidden = {
+                                scope.launch {
+                                    container.settingsRepository.setShowHiddenFiles(
+                                        !settings.showHiddenFiles
+                                    )
                                 }
+                            },
+                            onCreateFile = { name ->
+                                scope.launch {
+                                    toastOp(runFileOp(container, FileOps.touch(joinGuestPath(filesDir, name))))
+                                    refreshFiles()
+                                }
+                            },
+                            onCreateFolder = { name ->
+                                scope.launch {
+                                    toastOp(runFileOp(container, FileOps.mkdir(joinGuestPath(filesDir, name))))
+                                    refreshFiles()
+                                }
+                            },
+                            onRename = { entry, newName ->
+                                scope.launch {
+                                    val from = joinGuestPath(filesDir, entry.name)
+                                    val to = joinGuestPath(filesDir, newName)
+                                    toastOp(runFileOp(container, FileOps.rename(from, to)))
+                                    refreshFiles()
+                                }
+                            },
+                            onDelete = { entry ->
+                                val full = joinGuestPath(filesDir, entry.name)
+                                if (!FileOps.isDeletable(full)) {
+                                    Toast.makeText(
+                                            context,
+                                            R.string.files_protected_path,
+                                            Toast.LENGTH_SHORT,
+                                        )
+                                        .show()
+                                } else {
+                                    scope.launch {
+                                        toastOp(runFileOp(container, FileOps.delete(full)))
+                                        refreshFiles()
+                                    }
+                                }
+                            },
+                            onCopyPath = { path ->
+                                val cm =
+                                    context.getSystemService(Context.CLIPBOARD_SERVICE)
+                                        as? ClipboardManager
+                                cm?.setPrimaryClip(ClipData.newPlainText("UChat path", path))
+                                Toast.makeText(context, R.string.action_copied, Toast.LENGTH_SHORT)
+                                    .show()
+                            },
+                            onExtract = { entry ->
+                                scope.launch {
+                                    val archive = joinGuestPath(filesDir, entry.name)
+                                    val cmd =
+                                        if (entry.name.lowercase().endsWith(".tar")) {
+                                            FileOps.extractTar(archive, filesDir)
+                                        } else {
+                                            FileOps.extractTarGz(archive, filesDir)
+                                        }
+                                    toastOp(runFileOp(container, cmd, timeoutSeconds = 600))
+                                    refreshFiles()
+                                }
+                            },
+                            onEdit = { entry ->
+                                scope.launch {
+                                    if (entry.sizeBytes > FileOps.MAX_EDIT_BYTES) {
+                                        Toast.makeText(
+                                                context,
+                                                R.string.files_import_too_large,
+                                                Toast.LENGTH_SHORT,
+                                            )
+                                            .show()
+                                        return@launch
+                                    }
+                                    val full = joinGuestPath(filesDir, entry.name)
+                                    val result =
+                                        try {
+                                            container.shell.exec(
+                                                listOf("/bin/bash", "-c", FileOps.cat(full)),
+                                                timeoutSeconds = 30,
+                                            )
+                                        } catch (e: Exception) {
+                                            Logs.app("read file failed: ${e.message}")
+                                            null
+                                        }
+                                    if (result?.success == true) {
+                                        editTarget = full
+                                        editText = result.stdout
+                                    } else {
+                                        toastOp(false)
+                                    }
+                                }
+                            },
+                            onShare = { entry ->
+                                shareFile(
+                                    context,
+                                    container,
+                                    joinGuestPath(filesDir, entry.name),
+                                    entry.name,
+                                )
                             },
                             modifier = commonModifier,
                         )
@@ -378,6 +639,7 @@ fun AppRoot(container: AppContainer) {
                             onOpenDiagnostics = { overlay = Overlay.DIAGNOSTICS },
                             onOpenExtraKeys = { overlay = Overlay.EXTRA_KEYS },
                             onOpenTerminalSettings = { overlay = Overlay.TERMINAL_SETTINGS },
+                            onOpenSecrets = { overlay = Overlay.API_KEYS },
                             modifier = commonModifier,
                         )
                 }
@@ -405,13 +667,18 @@ fun AppRoot(container: AppContainer) {
                         scope.launch { installToolNow(container, tool, toolStates) }
                     },
                     onLaunch = { tool ->
-                        launchCommand(container, tool.name, listOf(tool.executable)) { id ->
+                        launchCommand(
+                            container,
+                            tool.name,
+                            listOf(tool.executable),
+                            restore = settings.restoreSessionsAfterReboot,
+                        ) { id ->
                             activeSessionId = id
                             overlay = Overlay.NONE
                             tab = Tab.TERMINAL
                         }
                     },
-                    onConfigure = { /* configured via terminal session for now */},
+                    onConfigure = { _ -> overlay = Overlay.API_KEYS },
                     modifier = commonModifier,
                 )
             Overlay.SERVERS ->
@@ -439,6 +706,7 @@ fun AppRoot(container: AppContainer) {
                             container.settingsRepository.setPersistentNotification(enabled)
                         }
                     },
+                    onOpenSecrets = { overlay = Overlay.API_KEYS },
                     onCleanup = {
                         scope.launch {
                             container.shell.exec(
@@ -465,7 +733,7 @@ fun AppRoot(container: AppContainer) {
                 )
             Overlay.DIAGNOSTICS ->
                 DiagnosticsScreen(
-                    device = null,
+                    device = deviceSummary,
                     toolVersions = toolVersions,
                     uchatVersion = com.uchat.android.core.BuildInfo.VERSION_NAME,
                     onRunHealthCheck = {
@@ -490,6 +758,52 @@ fun AppRoot(container: AppContainer) {
                     onBack = { overlay = Overlay.NONE },
                     modifier = commonModifier,
                 )
+            Overlay.API_KEYS ->
+                com.uchat.android.ui.settings.SecretsScreen(
+                    repository = container.secretsRepository,
+                    onBack = { overlay = Overlay.NONE },
+                    modifier = commonModifier,
+                )
+        }
+
+        // Built-in text editor for the Files tab (overlay dialog — reachable from any tab).
+        editTarget?.let { path ->
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { editTarget = null },
+                title = { Text(path.substringAfterLast('/')) },
+                text = {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = editText,
+                        onValueChange = { editText = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 6,
+                        maxLines = 14,
+                    )
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            val target = path
+                            val content = editText
+                            editTarget = null
+                            scope.launch {
+                                val b64 =
+                                    android.util.Base64.encodeToString(
+                                        content.toByteArray(Charsets.UTF_8),
+                                        android.util.Base64.NO_WRAP,
+                                    )
+                                toastOp(runFileOp(container, FileOps.writeBase64(target, b64)))
+                                refreshFiles()
+                            }
+                        }
+                    ) { Text(stringResource(R.string.action_save)) }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = { editTarget = null }) {
+                        Text(stringResource(R.string.action_cancel))
+                    }
+                },
+            )
         }
     }
 }
@@ -528,6 +842,7 @@ private fun launchCommand(
     label: String,
     command: List<String>,
     workingDirInUbuntu: String = Proot.UBUNTU_HOME,
+    restore: Boolean = false,
     onLaunched: (Long) -> Unit,
 ) {
     if (!container.paths.isUbuntuInstalled) return
@@ -542,6 +857,24 @@ private fun launchCommand(
             scope = container.appScope,
         )
     container.processManager.register(session)
+    if (restore) {
+        // Persist for restore-after-reboot / app-death recovery (removed again on exit/close).
+        container.appScope.launch {
+            try {
+                container.database.processDao().insert(
+                    ProcessEntity(
+                        sessionId = session.id,
+                        label = label,
+                        command = command.joinToString(" "),
+                        workingDirectory = workingDirInUbuntu,
+                        autoRestart = true,
+                    )
+                )
+            } catch (e: Exception) {
+                Logs.app("persist session failed: ${e.message}")
+            }
+        }
+    }
     onLaunched(session.id)
 }
 
@@ -549,11 +882,15 @@ private fun launchCommand(
 private fun secretsEnv(container: AppContainer): Map<String, String> {
     val map = mutableMapOf<String, String>()
     container.secretsRepository
-        .get(com.uchat.android.data.repo.SecretsRepository.OPENCODE_API_KEY)
+        .get(SecretsRepository.OPENCODE_API_KEY)
         ?.let { map["OPENCODE_API_KEY"] = String(it) }
     container.secretsRepository
-        .get(com.uchat.android.data.repo.SecretsRepository.CLAUDE_API_KEY)
+        .get(SecretsRepository.CLAUDE_API_KEY)
         ?.let { map["ANTHROPIC_API_KEY"] = String(it) }
+    container.secretsRepository.get(SecretsRepository.GITHUB_TOKEN)?.let { token ->
+        map["GITHUB_TOKEN"] = String(token)
+        map["GH_TOKEN"] = String(token)
+    }
     return map
 }
 
@@ -664,6 +1001,7 @@ private suspend fun runHealthCheck(container: AppContainer): Map<String, String>
 private fun listFiles(
     container: AppContainer,
     dir: String,
+    showHidden: Boolean,
     setLoading: (Boolean) -> Unit,
     onResult: (List<FileEntry>) -> Unit,
 ) {
@@ -705,6 +1043,8 @@ private fun listFiles(
                                 mode = parts[2],
                             )
                         }
+                        // Respect the user's hidden-files preference (was stored but ignored).
+                        .filter { showHidden || !it.name.startsWith(".") }
                         .sortedWith(
                             compareByDescending<FileEntry> { it.isDir }
                                 .thenBy { it.name.lowercase() }
@@ -747,6 +1087,100 @@ private fun compressDir(container: AppContainer, dir: String) {
 private fun normalizePath(current: String, name: String): String {
     if (name.startsWith("/")) return name
     return if (current == "/") "/$name" else "$current/$name"
+}
+
+private fun joinGuestPath(dir: String, name: String): String = normalizePath(dir, name)
+
+/** Runs a Files-tab operation through the safe shell layer; false means the op failed. */
+private suspend fun runFileOp(
+    container: AppContainer,
+    command: String,
+    timeoutSeconds: Long = 60,
+): Boolean =
+    try {
+        if (!container.paths.isUbuntuInstalled) {
+            false
+        } else {
+            container.shell
+                .exec(listOf("/bin/bash", "-c", command), timeoutSeconds = timeoutSeconds)
+                .success
+        }
+    } catch (e: Exception) {
+        Logs.app("file op failed: ${e.message}")
+        false
+    }
+
+/**
+ * Maps a guest (Ubuntu) path to its host file. Bind-mounted trees (workspace, downloads, shared)
+ * live OUTSIDE the rootfs on the host, so they are remapped to their real bind source; everything
+ * else resolves under the ubuntu rootfs directory.
+ */
+internal fun hostFileForGuest(container: AppContainer, guestPath: String): java.io.File? {
+    val clean = guestPath.trim().trimEnd('/')
+    if (clean.isEmpty() || clean.split('/').any { it == ".." }) return null
+    val mapped =
+        when {
+            clean == Proot.UBUNTU_WORKSPACE ||
+                clean.startsWith("${Proot.UBUNTU_WORKSPACE}/") ->
+                container.paths.workspaceDir.absolutePath.trimEnd('/') +
+                    clean.removePrefix(Proot.UBUNTU_WORKSPACE)
+            clean == Proot.UBUNTU_DOWNLOADS ||
+                clean.startsWith("${Proot.UBUNTU_DOWNLOADS}/") ->
+                container.paths.downloadsDir.absolutePath.trimEnd('/') +
+                    clean.removePrefix(Proot.UBUNTU_DOWNLOADS)
+            else ->
+                container.paths.ubuntuRoot.absolutePath.trimEnd('/') + clean
+        }
+    return java.io.File(mapped).takeIf { it.isFile }
+}
+
+/** Share a file out of Ubuntu via the (previously dead) FileProvider declaration. */
+private fun shareFile(
+    context: Context,
+    container: AppContainer,
+    guestPath: String,
+    name: String,
+) {
+    val src = hostFileForGuest(container, guestPath)
+    if (src == null) {
+        Toast.makeText(context, R.string.files_op_failed, Toast.LENGTH_SHORT).show()
+        return
+    }
+    try {
+        val destDir = java.io.File(container.paths.cacheDir, "shared").apply { mkdirs() }
+        val dest = java.io.File(destDir, name)
+        src.inputStream().use { input -> dest.outputStream().use { output -> input.copyTo(output) } }
+        val uri =
+            androidx.core.content.FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                dest,
+            )
+        val send =
+            Intent(Intent.ACTION_SEND)
+                .setType("application/octet-stream")
+                .putExtra(Intent.EXTRA_STREAM, uri)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        context.startActivity(Intent.createChooser(send, null))
+    } catch (e: Exception) {
+        Logs.app("share failed: ${e.message}")
+        Toast.makeText(context, R.string.files_op_failed, Toast.LENGTH_SHORT).show()
+    }
+}
+
+/** Real device facts for the Diagnostics screen (was falling back to a null summary). */
+private fun buildDeviceSummary(context: Context, abi: DeviceAbi): DeviceSummary {
+    val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+    val memInfo = android.app.ActivityManager.MemoryInfo()
+    am?.getMemoryInfo(memInfo)
+    return DeviceSummary(
+        abi = abi,
+        availableBytes = context.filesDir.usableSpace,
+        totalBytes = context.filesDir.totalSpace,
+        model = Build.MODEL,
+        androidVersion = Build.VERSION.RELEASE,
+        ramMb = memInfo.totalMem / (1024L * 1024L),
+    )
 }
 
 private fun dirSize(file: java.io.File): Long =

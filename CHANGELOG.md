@@ -3,6 +3,43 @@
 All notable changes to UChat are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [SemVer](https://semver.org/).
 
+## [1.4.0] - 2026-09-27
+
+### Added
+- **Close terminal** — full session lifecycle control:
+  - ✕ Close button on every terminal tab: stops the process if needed, releases the pty
+    master file descriptor, drops the session's replay buffer and removes the tab
+  - "Close all sessions" in the terminal overflow menu
+  - Dead sessions auto-close 60 s after exit (the `[session exited …]` banner stays readable),
+    so zombie tabs and FD leaks are gone
+- **API keys manager** (Settings → API keys, More → API keys, and the previously dead
+  "Configure" button on AI tools): store OpenCode / Claude Code / GitHub tokens encrypted with
+  Android Keystore; they are injected as environment variables into every Ubuntu session
+  (`OPENCODE_API_KEY`, `ANTHROPIC_API_KEY`, `GITHUB_TOKEN`, `GH_TOKEN`) and never logged
+- **Files manager is fully functional now**:
+  - create files/folders, rename, delete (with protected-path guard), copy path
+  - built-in text editor (≤ 256 KiB, base64-safe round-trip through the shell layer)
+  - share any file to other apps via FileProvider (the manifest declaration is finally used)
+  - "Extract here" for .tar.gz / .tgz / .tar
+  - hidden-files toggle that actually filters dotfiles
+- **Restore background sessions after reboot** now really works: launched sessions are
+  persisted with autoRestart, removed when they exit or are closed, restored on reboot
+  (BootReceiver) and on app start
+- **Home dashboard shows real connectivity** (ConnectivityManager) instead of a hardcoded
+  "Connected"
+
+### Fixed
+- Sessions that exited no longer pile up as untouchable tabs; the pty master FD leak is closed
+- The foreground service stops itself when the last session ends (no more eternal
+  "0 background process(es)" notification) and honours the persistent-notification setting
+- The POST_NOTIFICATIONS runtime permission is requested on Android 13+
+- Creating a project actually creates its directory inside Ubuntu before recording it
+- Diagnostics shows a real device summary (ABI, RAM) instead of a null placeholder
+- x86 APK split removed: Ubuntu 24.04 has no i386 rootfs and no x86 native libs were bundled,
+  so the x86 APK could never start a shell
+- Notification text uses the app's string resources (EN + ID)
+- Removed the dead `unused_placeholder` DataStore key
+
 ## [1.3.1] - 2026-09-27
 
 ### Fixed

@@ -36,6 +36,7 @@ fun SettingsScreen(
     onThemeModeChange: (AppThemeMode) -> Unit,
     onRestoreRebootChange: (Boolean) -> Unit,
     onPersistentNotificationChange: (Boolean) -> Unit,
+    onOpenSecrets: () -> Unit,
     onCleanup: () -> Unit,
     onReset: () -> Unit,
     onOpenDiagnostics: () -> Unit,
@@ -165,6 +166,12 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                OutlinedButton(
+                    onClick = onOpenSecrets,
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Text(stringResource(R.string.settings_secrets))
+                }
                 OutlinedButton(
                     onClick = onOpenDiagnostics,
                     modifier = Modifier.padding(top = 8.dp)

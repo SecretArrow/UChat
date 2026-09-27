@@ -38,11 +38,13 @@ android {
     }
 
     // ABI-specific release APKs are produced by GitHub Actions (see .github/workflows/release.yml).
+    // x86 is intentionally excluded: Ubuntu 24.04 has no i386 rootfs and no x86 jniLibs are
+    // bundled, so an x86 APK would install but could never start a shell.
     splits {
         abi {
             isEnable = true
             reset()
-            include("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
             isUniversalApk = true
         }
     }

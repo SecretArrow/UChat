@@ -27,6 +27,7 @@ fun MoreScreen(
     onOpenDiagnostics: () -> Unit,
     onOpenExtraKeys: () -> Unit,
     onOpenTerminalSettings: () -> Unit,
+    onOpenSecrets: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -39,6 +40,7 @@ fun MoreScreen(
         MoreItem(stringResource(R.string.servers_title), onOpenServers)
         MoreItem(stringResource(R.string.editor_title), onOpenExtraKeys)
         MoreItem(stringResource(R.string.tset_title), onOpenTerminalSettings)
+        MoreItem(stringResource(R.string.settings_secrets), onOpenSecrets)
         MoreItem(stringResource(R.string.settings_title), onOpenSettings)
         MoreItem(stringResource(R.string.diagnostics_title), onOpenDiagnostics)
 

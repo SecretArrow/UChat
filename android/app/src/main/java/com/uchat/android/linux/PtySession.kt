@@ -41,6 +41,11 @@ class PtySession(
     var exitCode: Int? = null
         private set
 
+    /** Wall clock at which the session flipped to EXITED — drives the reaper grace window. */
+    @Volatile
+    var exitedAtMillis: Long = 0L
+        private set
+
     val pid: Long
         get() = nativePid
 
@@ -94,6 +99,7 @@ class PtySession(
                 }
                 val code = Pty.nativeWaitFor(handle)
                 exitCode = code
+                exitedAtMillis = System.currentTimeMillis()
                 state = SessionState.EXITED
                 Logs.process("session #$id '$label' exited with $code")
                 onExit?.invoke(code)
@@ -190,8 +196,58 @@ class ProcessManager(
         Logs.process("stopAll requested (${sessions.size} sessions)")
     }
 
-    /** Removes exited sessions from the registry, keeping their metadata in DB. */
-    fun reapExited() {
-        sessions.values.filter { it.state == SessionState.EXITED }.forEach { remove(it.id) }
+    /**
+     * CLOSE ALL (user-facing): stops whatever is still running and removes every session from the
+     * registry — pty master FDs are released and replay buffers are dropped by the caller.
+     */
+    fun closeAll() {
+        sessions.values.forEach { session ->
+            session.stop()
+            remove(session.id)
+        }
+        Logs.process("closeAll: removed ${sessions.size} sessions")
     }
+
+    /**
+     * Removes exited sessions from the registry so their pty master FDs are released.
+     *
+     * A short grace window keeps a freshly-exited tab visible (the user should still see the
+     * "[session exited …]" banner); once the window passes the tab is closed automatically. FAILED
+     * sessions (never started) are reaped immediately.
+     */
+    fun reapExited(graceMillis: Long = DEFAULT_REAP_GRACE_MILLIS, nowMillis: Long = System.currentTimeMillis()) {
+        sessions.values.forEach { session ->
+            if (
+                ReapPolicy.shouldReap(
+                    state = session.state,
+                    exitedAtMillis = session.exitedAtMillis,
+                    nowMillis = nowMillis,
+                    graceMillis = graceMillis,
+                )
+            ) {
+                remove(session.id)
+            }
+        }
+    }
+
+    companion object {
+        /** How long an exited session stays visible as a tab before automatic cleanup. */
+        const val DEFAULT_REAP_GRACE_MILLIS = 60_000L
+    }
+}
+
+/** Pure decision for the session reaper (unit-tested): reap exited after the grace window. */
+object ReapPolicy {
+    fun shouldReap(
+        state: SessionState,
+        exitedAtMillis: Long,
+        nowMillis: Long,
+        graceMillis: Long,
+    ): Boolean =
+        when (state) {
+            SessionState.FAILED -> true
+            SessionState.EXITED ->
+                exitedAtMillis > 0L && nowMillis - exitedAtMillis >= graceMillis
+            else -> false
+        }
 }

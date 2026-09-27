@@ -41,10 +41,20 @@ interface ProcessDao {
     )
     suspend fun markExited(sessionId: Long, code: Int, time: Long)
 
+    /** Sessions flagged for restore — alive when the device/app died (exitedAt still NULL). */
+    @Query("SELECT * FROM processes WHERE autoRestart = 1")
+    suspend fun restorable(): List<ProcessEntity>
+
     @Query("SELECT * FROM processes WHERE autoRestart = 1 AND exitedAt IS NOT NULL")
     suspend fun autoRestartCandidates(): List<ProcessEntity>
 
     @Delete suspend fun delete(process: ProcessEntity)
+
+    @Query("DELETE FROM processes WHERE sessionId = :sessionId")
+    suspend fun deleteBySessionId(sessionId: Long)
+
+    @Query("DELETE FROM processes")
+    suspend fun deleteAll()
 }
 
 @Dao

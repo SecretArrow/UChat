@@ -79,12 +79,14 @@ object NotificationHelper {
 
         return NotificationCompat.Builder(context, CHANNEL_PROCESSES)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("UChat")
-            .setContentText("$runningCount background process(es)")
+            .setContentTitle(context.getString(R.string.app_name))
+            .setContentText(
+                context.getString(R.string.processes_service_notification, runningCount)
+            )
             .setStyle(style)
             .setOngoing(true)
             .setContentIntent(openIntent)
-            .addAction(0, "Stop All", stopAll)
+            .addAction(0, context.getString(R.string.processes_stop_all), stopAll)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build()
     }

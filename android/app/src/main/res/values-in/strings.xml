@@ -142,8 +142,15 @@
     <string name="files_open_terminal_here">Buka terminal di sini</string>
     <string name="files_copy_path">Salin path</string>
     <string name="files_delete_confirm">Hapus %1$s?</string>
+    <string name="files_delete_irreversible">Tindakan ini tidak dapat dibatalkan.</string>
     <string name="files_import_too_large">Berkas terlalu besar.</string>
     <string name="files_parent_dir">Workspace</string>
+    <string name="files_actions">Tindakan</string>
+    <string name="files_edit">Edit</string>
+    <string name="files_share">Bagikan</string>
+    <string name="files_name_label">Nama</string>
+    <string name="files_op_failed">Operasi gagal</string>
+    <string name="files_protected_path">Path ini dilindungi dan tidak dapat dihapus.</string>
 
     <!-- Processes -->
     <string name="processes_title">Proses</string>
@@ -154,6 +161,7 @@
     <string name="processes_view_logs">Lihat log</string>
     <string name="processes_stop_all">Hentikan semua</string>
     <string name="processes_service_notification">%1$d proses latar belakang</string>
+    <string name="service_starting">UChat sedang memulai…</string>
 
     <!-- Tools -->
     <string name="tools_title">AI Tools</string>
@@ -171,6 +179,17 @@
     <string name="tools_env_model">Model</string>
     <string name="tools_env_provider">Provider</string>
     <string name="tools_env_hint_secret">Disimpan terenkripsi dengan Android Keystore. Tidak pernah dicatat atau diekspor.</string>
+
+    <!-- Secrets / API keys -->
+    <string name="secrets_title">Kunci API</string>
+    <string name="secrets_intro">Kunci disimpan terenkripsi (Android Keystore), disuntikkan sebagai variabel lingkungan ke setiap sesi Ubuntu, dan tidak pernah dicatat. Alat seperti OpenCode, Claude Code, dan gh membacanya secara otomatis.</string>
+    <string name="secrets_opencode">OpenCode — kunci API</string>
+    <string name="secrets_claude">Claude Code — kunci API</string>
+    <string name="secrets_github">GitHub — token</string>
+    <string name="secrets_status_set">Terpasang</string>
+    <string name="secrets_status_unset">Belum diatur</string>
+    <string name="secrets_value_hint">Tempel nilai</string>
+    <string name="secrets_delete_confirm">Hapus kunci ini?</string>
 
     <!-- Servers -->
     <string name="servers_title">Server lokal</string>
@@ -247,6 +266,8 @@
     <string name="terminal_no_sessions">Tidak ada sesi aktif</string>
     <string name="terminal_no_sessions_hint">Mulai sesi untuk membuka shell Ubuntu asli</string>
     <string name="terminal_stop_session">Hentikan sesi</string>
+    <string name="terminal_close_session">Tutup sesi</string>
+    <string name="terminal_close_all">Tutup semua sesi</string>
     <string name="terminal_editor">Edit tombol ekstra</string>
     <string name="terminal_settings">Pengaturan terminal</string>
     <string name="terminal_exited">selesai (%1$d)</string>
