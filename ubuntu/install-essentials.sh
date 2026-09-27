@@ -5,16 +5,21 @@ set -uo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
+# Acquire options make apt resilient on flaky mobile networks: 3 retries per
+# repository/file and a 30 s HTTP timeout instead of hanging forever.
+APT_ACQUIRE_OPTS=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30)
+
 echo "[uchat] apt-get update"
 # No -qq here: quiet mode hides the E: diagnostics, which once made a CI failure look like
 # "rc=1" with no cause. One visible retry gives real devices resilience against flaky mirrors.
-if ! apt-get update; then
+if ! apt-get update "${APT_ACQUIRE_OPTS[@]}"; then
   echo "[uchat] apt-get update failed — retrying once"
-  apt-get update || exit 1
+  apt-get update "${APT_ACQUIRE_OPTS[@]}" || exit 1
 fi
 
 echo "[uchat] installing essential packages"
 apt-get install -y --no-install-recommends \
+  "${APT_ACQUIRE_OPTS[@]}" \
   ca-certificates \
   curl \
   wget \

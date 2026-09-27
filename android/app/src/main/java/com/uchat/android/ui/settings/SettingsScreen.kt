@@ -102,8 +102,10 @@ fun SettingsScreen(
                 Slider(
                     value = settings.terminalFontSize.toFloat(),
                     onValueChange = { onFontSizeChange(it.toInt()) },
-                    valueRange = 12f..24f,
-                    steps = 11,
+                    // Same range as the dedicated terminal settings screen (8..32); 23 discrete
+                    // steps keep 1 sp granularity across the wider range.
+                    valueRange = 8f..32f,
+                    steps = 23,
                 )
             }
         }

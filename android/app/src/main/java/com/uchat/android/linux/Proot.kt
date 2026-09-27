@@ -81,7 +81,7 @@ object Proot {
                 "SHELL" to "/bin/bash",
                 "TMPDIR" to "/tmp",
                 "PATH" to
-                    "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.local/bin:/root/.bun/bin",
+                    "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.local/bin:/root/.bun/bin:/root/.opencode/bin",
                 "PROOT_NO_SECCOMP" to "1",
                 // proot itself creates temp files on the HOST before starting the guest; Android
                 // has no /tmp, so point it at the app cache dir whenever we know it.

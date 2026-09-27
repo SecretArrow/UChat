@@ -5,6 +5,7 @@ import com.uchat.android.linux.install.SCRIPTS
 import java.io.File
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -119,5 +120,50 @@ class RegistryScriptsSyncTest {
             "essentials must install gnupg (needed by apt repo setups)",
             essentials.contains("gnupg"),
         )
+    }
+
+    @Test
+    fun `install scripts are robust - apt retries, node delegation, hard healthcheck`() {
+        val essentials = File(assetsUbuntu, "install-essentials.sh").readText()
+        assertTrue(
+            "essentials must retry apt downloads on flaky mobile networks",
+            essentials.contains("Acquire::Retries"),
+        )
+        assertTrue(
+            "essentials must bound apt HTTP time (Acquire::http::Timeout)",
+            essentials.contains("Acquire::http::Timeout"),
+        )
+        assertTrue(
+            "essentials must run noninteractive",
+            essentials.contains("DEBIAN_FRONTEND=noninteractive"),
+        )
+
+        val runtimes = File(assetsUbuntu, "install-runtimes.sh").readText()
+        assertTrue(
+            "install-runtimes.sh must delegate node install to install-node.sh " +
+                "(arch-aware tarball route with offline + NodeSource fallback)",
+            runtimes.contains("install-node.sh"),
+        )
+        assertTrue(
+            "install-runtimes.sh must exit non-zero when node is missing at the end",
+            runtimes.contains("command -v node"),
+        )
+
+        val health = File(assetsUbuntu, "healthcheck.sh").readText()
+        assertFalse(
+            "healthcheck.sh still contains the broken '[h[uchat]' echo prefix",
+            health.contains("[h[uchat]"),
+        )
+        assertTrue(
+            "healthcheck.sh must hard-fail with a MISSING tool list (enforced step 9)",
+            health.contains("MISSING"),
+        )
+        listOf("bash", "apt-get", "git", "curl", "node", "npm", "python3", "pip3", "opencode", "claude")
+            .forEach { cmd ->
+                assertTrue(
+                    "healthcheck.sh must require '$cmd'",
+                    health.contains(cmd),
+                )
+            }
     }
 }

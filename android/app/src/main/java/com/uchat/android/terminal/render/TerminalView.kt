@@ -140,7 +140,8 @@ fun TerminalView(
             }
         }
 
-    // Grid placement: fit-to-screen (identity) or the fixed grid scaled/centered into view.
+    // Grid placement: fit-to-screen (identity, scaled down when MIN_COLS does not fit) or the
+    // fixed grid scaled/centered into view.
     var viewportSize by remember { mutableStateOf<androidx.compose.ui.unit.IntSize?>(null) }
     var transform by remember { mutableStateOf(GridTransform.IDENTITY) }
 
@@ -148,21 +149,36 @@ fun TerminalView(
         if (size.width <= 0 || size.height <= 0) return
         val vw = size.width.toFloat()
         val vh = size.height.toFloat()
-        transform =
-            GridTransform.solve(
-                viewportWidth = vw,
-                viewportHeight = vh,
-                cols = fixedCols,
-                rows = fixedRows,
-                cellWidth = metrics.cellWidth,
-                cellHeight = metrics.cellHeight,
-                fitScreen = fitScreen,
-            )
         if (fitScreen) {
             val cols = floor((vw - 2 * insetX) / metrics.cellWidth).toInt().coerceAtLeast(2)
             val rows = floor((vh - 2 * insetY) / metrics.cellHeight).toInt().coerceAtLeast(1)
-            controller.onGridViewport(cols, rows)
+            // Normally the viewport-derived grid is drawn 1:1. With a large font fewer than
+            // MIN_COLS columns fit — growing the buffer would push the right columns off-screen
+            // (there is no horizontal scroll), so instead the grid is raised to MIN_COLS and
+            // scaled down/centered like fixed mode. Nothing is ever clipped.
+            val fit =
+                GridTransform.solveFitScreen(
+                    viewportWidth = vw,
+                    viewportHeight = vh,
+                    cols = cols,
+                    rows = rows,
+                    cellWidth = metrics.cellWidth,
+                    cellHeight = metrics.cellHeight,
+                    minCols = TerminalController.MIN_COLS,
+                )
+            transform = fit.transform
+            controller.onGridViewport(fit.cols, rows)
         } else {
+            transform =
+                GridTransform.solve(
+                    viewportWidth = vw,
+                    viewportHeight = vh,
+                    cols = fixedCols,
+                    rows = fixedRows,
+                    cellWidth = metrics.cellWidth,
+                    cellHeight = metrics.cellHeight,
+                    fitScreen = false,
+                )
             controller.onGridViewport(fixedCols, fixedRows)
         }
     }
@@ -709,18 +725,22 @@ private fun drawTextRun(
         paint.isFakeBoldText = false
         paint.alpha = 255
     }
+    // Display width in cells: a BMP CJK char is one UTF-16 char but two cells, so measuring by
+    // text.length underlines one cell short. WcWidth mirrors exactly how the buffer allocated
+    // cells (wide = 2, combining = 0, surrogate pairs = one code point).
+    val runWidthCells = WcWidth.stringWidth(text)
     val thickness = 1.5f.coerceAtLeast(cellH / 24f)
     if (flags and TerminalBuffer.Attr.FLAG_UNDERLINE != 0) {
         paint.style = Paint.Style.FILL
         paint.color = fgArgb
         val uy = baseline + cellH * 0.08f
-        canvas.drawRect(x, uy, x + text.length * cellW, uy + thickness, paint)
+        canvas.drawRect(x, uy, x + runWidthCells * cellW, uy + thickness, paint)
     }
     if (flags and TerminalBuffer.Attr.FLAG_STRIKE != 0) {
         paint.style = Paint.Style.FILL
         paint.color = fgArgb
         val sy = baseline - cellH * 0.28f
-        canvas.drawRect(x, sy, x + text.length * cellW, sy + thickness, paint)
+        canvas.drawRect(x, sy, x + runWidthCells * cellW, sy + thickness, paint)
     }
 }
 

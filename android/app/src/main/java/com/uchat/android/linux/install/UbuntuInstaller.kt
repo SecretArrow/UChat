@@ -1,5 +1,7 @@
 package com.uchat.android.linux.install
 
+import androidx.annotation.StringRes
+import com.uchat.android.R
 import com.uchat.android.core.AppError
 import com.uchat.android.core.arch.DeviceAbi
 import com.uchat.android.core.format.Format
@@ -24,6 +26,45 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 /**
+ * Resolves the localized installer error strings (EN + ID) without hard-wiring an Android Context
+ * into the installer. AppContainer wires `applicationContext::getString`; JVM tests (and any
+ * construction site that omits it) fall back to the English literals below, so error text is never
+ * silently empty.
+ */
+fun interface InstallerStrings {
+    fun get(@StringRes resId: Int, vararg args: Any): String
+}
+
+/** English fallback mirroring res/values/strings.xml — used only when no provider is wired. */
+val EnglishInstallerStrings: InstallerStrings =
+    InstallerStrings { resId, _ ->
+        when (resId) {
+            R.string.installer_error_unsupported_title -> "Unsupported architecture"
+            R.string.installer_error_unsupported_reason -> "Ubuntu 24.04 has no rootfs for %1$s."
+            R.string.installer_error_network_title -> "Network unreachable"
+            R.string.installer_error_network_reason ->
+                "Cannot reach %1$s. Check the internet connection and try again."
+            R.string.installer_error_storage_title -> "Not enough storage"
+            R.string.installer_error_storage_reason ->
+                "%1$s free, but at least %2$s is required."
+            R.string.installer_error_checksum_title -> "Checksum mismatch"
+            R.string.installer_error_checksum_reason ->
+                "The downloaded %1$s does not match the pinned SHA-256 — the download is corrupted."
+            R.string.installer_error_apt_title -> "apt install failed"
+            R.string.installer_error_runtime_title -> "Runtime install failed"
+            R.string.installer_error_opencode_title -> "OpenCode install failed"
+            R.string.installer_error_claude_title -> "Claude Code install failed"
+            R.string.installer_error_health_title -> "Health check failed"
+            R.string.installer_error_marker_title -> "Could not finalize installation"
+            R.string.installer_error_marker_reason ->
+                "Writing the completion marker failed — storage may be full or unavailable."
+            R.string.installer_error_generic_title -> "Installation failed"
+            R.string.installer_error_generic_reason -> "Unexpected error: %1$s"
+            else -> ""
+        }
+    }
+
+/**
  * The Ubuntu 24.04 installer: a resumable 10-step state machine (spec #4).
  *
  * Guarantees:
@@ -31,12 +72,14 @@ import kotlinx.coroutines.launch
  * - every byte is verified against the pinned SHA-256 BEFORE extraction
  * - pause / resume / retry / cancel are supported at every step
  * - a failed step never silently continues
+ * - `isUbuntuInstalled` becomes true ONLY at step 10, when the ready marker is written
  */
 class UbuntuInstaller(
     private val paths: UChatPaths,
     private val registry: AssetRegistry,
     private val scope: CoroutineScope,
     private val bundledProot: () -> File? = { null },
+    private val strings: InstallerStrings = EnglishInstallerStrings,
 ) {
 
     private val downloader = Downloader()
@@ -108,8 +151,9 @@ class UbuntuInstaller(
             fail(
                 InstallStep.DOWNLOAD_ROOTFS,
                 AppError(
-                    title = "Unsupported architecture",
-                    reason = "Ubuntu 24.04 has no rootfs for ${abi.androidAbi}",
+                    title = strings.get(R.string.installer_error_unsupported_title),
+                    reason =
+                        strings.get(R.string.installer_error_unsupported_reason, abi.androidAbi),
                 ),
             )
             return
@@ -128,10 +172,9 @@ class UbuntuInstaller(
                 fail(
                     InstallStep.DOWNLOAD_ROOTFS,
                     AppError(
-                        title = "Network unreachable",
+                        title = strings.get(R.string.installer_error_network_title),
                         reason =
-                            "Cannot reach ${rootfsEntry.url}. Check the device's internet " +
-                                "connection and try again.",
+                            strings.get(R.string.installer_error_network_reason, rootfsEntry.url),
                     ),
                 )
                 return
@@ -141,10 +184,13 @@ class UbuntuInstaller(
                 fail(
                     InstallStep.DOWNLOAD_ROOTFS,
                     AppError(
-                        title = "Not enough storage",
+                        title = strings.get(R.string.installer_error_storage_title),
                         reason =
-                            "${Format.bytes(usable)} free, but at least " +
-                                "${Format.bytes(requirement.minFreeBytes)} is required.",
+                            strings.get(
+                                R.string.installer_error_storage_reason,
+                                Format.bytes(usable),
+                                Format.bytes(requirement.minFreeBytes),
+                            ),
                     ),
                 )
                 return
@@ -170,9 +216,9 @@ class UbuntuInstaller(
                 fail(
                     InstallStep.VERIFY_CHECKSUM,
                     AppError(
-                        title = "Checksum mismatch",
+                        title = strings.get(R.string.installer_error_checksum_title),
                         reason =
-                            "The downloaded rootfs does not match the pinned SHA-256. The download is corrupted.",
+                            strings.get(R.string.installer_error_checksum_reason, "rootfs"),
                     ),
                 )
                 return
@@ -184,9 +230,9 @@ class UbuntuInstaller(
                     fail(
                         InstallStep.VERIFY_CHECKSUM,
                         AppError(
-                            title = "Checksum mismatch",
+                            title = strings.get(R.string.installer_error_checksum_title),
                             reason =
-                                "The downloaded proot binary does not match the pinned SHA-256.",
+                                strings.get(R.string.installer_error_checksum_reason, "proot"),
                         ),
                     )
                     return
@@ -203,6 +249,14 @@ class UbuntuInstaller(
             // Step 3 — extract rootfs (safe extractor)
             setStepStatus(InstallStep.EXTRACT_ROOTFS, StepStatus.Running)
             appendLog("extracting ${rootfsFile.name}")
+            // A fresh full install re-extracts the rootfs: drop the old ready marker up-front
+            // (it lives inside ubuntuRoot, so deleteRecursively removes it anyway — the explicit
+            // call is for clarity and lets us log the transition).
+            val hadMarker = paths.readyMarker.exists()
+            if (resumableStep == null) {
+                paths.unmarkInstalled()
+                if (hadMarker) appendLog("fresh install — previous marker cleared")
+            }
             if (paths.ubuntuRoot.exists()) {
                 paths.ubuntuRoot.deleteRecursively()
             }
@@ -235,7 +289,7 @@ class UbuntuInstaller(
                 fail(
                     InstallStep.INSTALL_ESSENTIALS,
                     AppError(
-                        title = "apt install failed",
+                        title = strings.get(R.string.installer_error_apt_title),
                         reason = essentials.stderr.take(400),
                         step = "install-essentials"
                     ),
@@ -254,7 +308,7 @@ class UbuntuInstaller(
                 fail(
                     InstallStep.INSTALL_RUNTIMES,
                     AppError(
-                        title = "runtime install failed",
+                        title = strings.get(R.string.installer_error_runtime_title),
                         reason = runtimes.stderr.take(400),
                         step = "install-runtimes"
                     ),
@@ -273,7 +327,7 @@ class UbuntuInstaller(
                 fail(
                     InstallStep.INSTALL_OPENCODE,
                     AppError(
-                        title = "OpenCode install failed",
+                        title = strings.get(R.string.installer_error_opencode_title),
                         reason = opencode.stderr.take(400),
                         step = "install-opencode"
                     ),
@@ -292,7 +346,7 @@ class UbuntuInstaller(
                 fail(
                     InstallStep.INSTALL_CLAUDE,
                     AppError(
-                        title = "Claude Code install failed",
+                        title = strings.get(R.string.installer_error_claude_title),
                         reason = claude.stderr.take(400),
                         step = "install-claude"
                     ),
@@ -308,7 +362,7 @@ class UbuntuInstaller(
                 fail(
                     InstallStep.HEALTH_CHECK,
                     AppError(
-                        title = "Health check failed",
+                        title = strings.get(R.string.installer_error_health_title),
                         reason = health.combined.take(400),
                         step = "healthcheck"
                     ),
@@ -317,8 +371,23 @@ class UbuntuInstaller(
             }
             setStepStatus(InstallStep.HEALTH_CHECK, StepStatus.Done)
 
-            // Step 10 — ready
+            // Step 10 — ready: persist the completion marker BEFORE declaring success. From now
+            // on (and only now) does isUbuntuInstalled become true — the dashboard must not
+            // replace the wizard a single step earlier.
             setStepStatus(InstallStep.READY, StepStatus.Running)
+            try {
+                paths.markInstalled()
+            } catch (e: Exception) {
+                fail(
+                    InstallStep.READY,
+                    AppError(
+                        title = strings.get(R.string.installer_error_marker_title),
+                        reason = strings.get(R.string.installer_error_marker_reason),
+                        cause = e,
+                    ),
+                )
+                return
+            }
             setStepStatus(InstallStep.READY, StepStatus.Done)
             resumableStep = null
             stateInternal.value =
@@ -333,8 +402,12 @@ class UbuntuInstaller(
             fail(
                 stateInternal.value.currentStep ?: InstallStep.DOWNLOAD_ROOTFS,
                 AppError(
-                    title = "Installation failed",
-                    reason = e.message ?: e.javaClass.simpleName,
+                    title = strings.get(R.string.installer_error_generic_title),
+                    reason =
+                        strings.get(
+                            R.string.installer_error_generic_reason,
+                            e.message ?: e.javaClass.simpleName,
+                        ),
                     cause = e,
                 ),
             )

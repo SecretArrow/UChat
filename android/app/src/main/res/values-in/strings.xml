@@ -328,4 +328,23 @@
     <string name="tset_height_rows">Tinggi terminal (baris)</string>
     <string name="tset_fixed_desc">Grid tetap — diperkecil otomatis bila layar lebih kecil, sehingga seluruh grid tetap terlihat.</string>
     <string name="back_exit_hint">Tekan kembali sekali lagi untuk keluar</string>
+
+    <!-- Installer error messages (judul/kalimat pembuka dilokalkan; detail teknis ditambahkan saat berjalan) -->
+    <string name="installer_error_unsupported_title">Arsitektur tidak didukung</string>
+    <string name="installer_error_unsupported_reason">Ubuntu 24.04 tidak menyediakan rootfs untuk %1$s.</string>
+    <string name="installer_error_network_title">Jaringan tidak dapat dihubungi</string>
+    <string name="installer_error_network_reason">Tidak dapat menghubungi %1$s. Periksa koneksi internet dan coba lagi.</string>
+    <string name="installer_error_storage_title">Penyimpanan tidak cukup</string>
+    <string name="installer_error_storage_reason">Tersedia %1$s, tetapi dibutuhkan setidaknya %2$s.</string>
+    <string name="installer_error_checksum_title">Checksum tidak cocok</string>
+    <string name="installer_error_checksum_reason">Berkas %1$s yang diunduh tidak cocok dengan SHA-256 yang ditetapkan — unduhan korup.</string>
+    <string name="installer_error_apt_title">apt gagal memasang paket</string>
+    <string name="installer_error_runtime_title">Pemasangan runtime gagal</string>
+    <string name="installer_error_opencode_title">Pemasangan OpenCode gagal</string>
+    <string name="installer_error_claude_title">Pemasangan Claude Code gagal</string>
+    <string name="installer_error_health_title">Pemeriksaan kesehatan gagal</string>
+    <string name="installer_error_marker_title">Gagal menyelesaikan instalasi</string>
+    <string name="installer_error_marker_reason">Penulisan penanda selesai gagal — penyimpanan mungkin penuh atau tidak tersedia.</string>
+    <string name="installer_error_generic_title">Instalasi gagal</string>
+    <string name="installer_error_generic_reason">Kesalahan tak terduga: %1$s</string>
 </resources>

@@ -63,10 +63,36 @@ class UChatPaths(context: Context) {
     val scriptsDir: File
         get() = File(filesDir, "scripts")
 
+    /**
+     * Written by the installer ONLY after every step (1–10) has succeeded — step 10. A bare
+     * /bin/bash is NOT proof of a finished install: the ubuntu-base tarball ships it, which once
+     * made the dashboard appear right after extraction while steps 4–10 were still failing.
+     */
+    val readyMarker: File
+        get() = File(ubuntuRoot, ".uchat-ready")
+
     val isUbuntuInstalled: Boolean
-        get() =
-            File(ubuntuRoot, "bin/bash").isFile &&
-                effectiveProotBinary.let { it.isFile && it.canExecute() }
+        get() {
+            val marker = readyMarker
+            if (!marker.isFile) {
+                // Pre-marker (≤ v1.4.0) installs: promote the healthy ones lazily so existing
+                // users are not thrown back into the wizard after upgrading. No-op for fresh
+                // or half-broken rootfs trees.
+                migrateLegacyInstall(ubuntuRoot, effectiveProotBinary, marker)
+            }
+            return isInstalled(ubuntuRoot, effectiveProotBinary, marker)
+        }
+
+    /** Marks the environment as fully installed (called by the installer at step 10). */
+    fun markInstalled() {
+        readyMarker.parentFile?.mkdirs()
+        readyMarker.writeText(System.currentTimeMillis().toString())
+    }
+
+    /** Removes the ready marker (fresh full install, reset, corrupted environment). */
+    fun unmarkInstalled() {
+        readyMarker.delete()
+    }
 
     /** Creates the whole layout; safe to call repeatedly. */
     fun ensureDirs() {
@@ -89,4 +115,43 @@ class UChatPaths(context: Context) {
     fun totalUsableBytes(): Long = filesDir.usableSpace
 
     fun totalCapacityBytes(): Long = filesDir.totalSpace
+
+    companion object {
+        /**
+         * Pure install decision (unit-testable, no Android context): the environment counts as
+         * installed only when the step-10 ready marker exists, /bin/bash is present AND an
+         * executable proot binary is available.
+         */
+        fun isInstalled(ubuntuRoot: File, proot: File?, marker: File): Boolean =
+            marker.isFile &&
+                File(ubuntuRoot, "bin/bash").isFile &&
+                proot != null &&
+                proot.isFile &&
+                proot.canExecute()
+
+        /**
+         * One-time migration of pre-marker (≤ v1.4.0) installs: those rootfs trees already carry
+         * apt-installed tooling. `/usr/bin/git` is installed by install-essentials.sh (step 5), so
+         * git + bash + proot proves steps 1–5 finished and the install is healthy → write the
+         * marker and return true. bash WITHOUT git is a broken half-install → return false so the
+         * wizard reappears and a reinstall repairs it. Never throws; write failures simply report
+         * "not migrated".
+         */
+        fun migrateLegacyInstall(ubuntuRoot: File, proot: File?, marker: File): Boolean {
+            if (marker.isFile) return false
+            val prootOk = proot != null && proot.isFile && proot.canExecute()
+            val healthy =
+                File(ubuntuRoot, "bin/bash").isFile &&
+                    File(ubuntuRoot, "usr/bin/git").isFile &&
+                    prootOk
+            if (!healthy) return false
+            return try {
+                marker.parentFile?.mkdirs()
+                marker.writeText(System.currentTimeMillis().toString())
+                true
+            } catch (_: Exception) {
+                false
+            }
+        }
+    }
 }

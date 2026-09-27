@@ -3,6 +3,34 @@
 All notable changes to UChat are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [SemVer](https://semver.org/).
 
+## [1.5.0] - 2026-09-28
+
+### Fixed
+- **The installer now runs ALL 10 steps visibly and the dashboard appears only after
+  "10. Ready"**:
+  - A ready marker (`.uchat-ready`) is written inside the Ubuntu root at step 10 only —
+    `isUbuntuInstalled` no longer returns true the moment `/bin/bash` exists (the
+    ubuntu-base tarball ships it, so the dashboard previously swapped out the wizard right
+    after step 3 while steps 4–10 were still running or failing)
+  - The finished wizard ("10. Ready 🎉" + Done) stays on screen until the user taps Done
+  - Legacy ≤ v1.4.0 installs are migrated automatically: rootfs trees with `/bin/bash` +
+    `/usr/bin/git` (git proves the essentials step completed) get the marker and keep
+    working; half-broken installs fall back to the wizard and a reinstall repairs them
+  - Marker write failures fail step 10 with a clear, copyable error instead of a fake success
+- **Health check (step 9) is now enforced**: `healthcheck.sh` hard-fails unless bash, apt-get,
+  git, curl, node, npm, python3, pip3, opencode and claude all resolve (tmux warns only);
+  the four broken `[h[uchat]` echo prefixes are fixed
+- **Node.js install uses the robust tarball route**: `install-runtimes.sh` delegates to
+  `install-node.sh` (arch-aware nodejs.org tarball, offline staged tarball, NodeSource
+  fallback) instead of the fragile NodeSource-only path; pnpm is linked onto the standard
+  PATH; the Claude Code binary is linked into `/usr/local/bin` so tarball-node installs pass
+  the health check; opencode is additionally linked into `~/.opencode/bin`
+- **Localized installer errors (EN + ID)**: network, storage, checksum, apt, runtimes,
+  opencode, claude, health and generic failures show translated titles/leads while the raw
+  technical detail (stderr tail, URLs) is kept for copyable diagnostics
+- apt essentials use `Acquire::Retries=3` + `Acquire::http::Timeout=30` (mobile networks)
+- proot sessions include `~/.opencode/bin` on PATH
+
 ## [1.4.0] - 2026-09-27
 
 ### Added

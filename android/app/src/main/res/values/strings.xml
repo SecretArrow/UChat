@@ -328,4 +328,23 @@
     <string name="tset_height_rows">Terminal height (rows)</string>
     <string name="tset_fixed_desc">Fixed grid — scaled down automatically when the screen is smaller, so the full grid stays visible.</string>
     <string name="back_exit_hint">Press back again to exit</string>
+
+    <!-- Installer error messages (localized titles/leads; raw technical detail is appended at runtime) -->
+    <string name="installer_error_unsupported_title">Unsupported architecture</string>
+    <string name="installer_error_unsupported_reason">Ubuntu 24.04 has no rootfs for %1$s.</string>
+    <string name="installer_error_network_title">Network unreachable</string>
+    <string name="installer_error_network_reason">Cannot reach %1$s. Check the internet connection and try again.</string>
+    <string name="installer_error_storage_title">Not enough storage</string>
+    <string name="installer_error_storage_reason">%1$s free, but at least %2$s is required.</string>
+    <string name="installer_error_checksum_title">Checksum mismatch</string>
+    <string name="installer_error_checksum_reason">The downloaded %1$s does not match the pinned SHA-256 — the download is corrupted.</string>
+    <string name="installer_error_apt_title">apt install failed</string>
+    <string name="installer_error_runtime_title">Runtime install failed</string>
+    <string name="installer_error_opencode_title">OpenCode install failed</string>
+    <string name="installer_error_claude_title">Claude Code install failed</string>
+    <string name="installer_error_health_title">Health check failed</string>
+    <string name="installer_error_marker_title">Could not finalize installation</string>
+    <string name="installer_error_marker_reason">Writing the completion marker failed — storage may be full or unavailable.</string>
+    <string name="installer_error_generic_title">Installation failed</string>
+    <string name="installer_error_generic_reason">Unexpected error: %1$s</string>
 </resources>

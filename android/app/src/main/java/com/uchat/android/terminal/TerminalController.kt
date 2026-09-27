@@ -79,6 +79,10 @@ class TerminalController(
 
     init {
         emulator.callbacks.onTitle = { /* window title reserved for the tab row */}
+        // Device reports (DSR/CPR, DA, CSI 18 t, focus in/out, OSC color queries) must reach
+        // the host — programs like vim and fish block waiting for them. Route replies through
+        // the same write path as user input; with no backend attached a reply is dropped.
+        emulator.callbacks.onResponse = { data -> write(data) }
         emulator.callbacks.onBell = {}
         emulator.callbacks.onClipboard = { text -> selectionText = text }
     }

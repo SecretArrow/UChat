@@ -2,6 +2,7 @@ package com.uchat.android
 
 import com.uchat.android.terminal.emulator.TerminalBuffer
 import com.uchat.android.terminal.emulator.TerminalEmulator
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -345,6 +346,16 @@ class TerminalEmulatorTest {
     }
 
     @Test
+    fun `cpr reply bytes are exactly esc row col R`() {
+        val t = Term()
+        val replies = mutableListOf<ByteArray>()
+        t.emulator.callbacks.onResponse = { replies.add(it) }
+        t.feed("\u001b[4;7H\u001b[6n")
+        assertEquals(1, replies.size)
+        assertArrayEquals("\u001b[4;7R".toByteArray(Charsets.UTF_8), replies[0])
+    }
+
+    @Test
     fun `dsr 5 reports ok`() {
         val t = Term()
         t.feed("\u001b[5n")
@@ -352,10 +363,24 @@ class TerminalEmulatorTest {
     }
 
     @Test
-    fun `da reports terminal class`() {
+    fun `primary da replies exactly`() {
         val t = Term()
         t.feed("\u001b[c")
-        assertTrue(t.responses.toString().startsWith("\u001b[?"))
+        assertEquals("\u001b[?6c", t.responses.toString())
+    }
+
+    @Test
+    fun `secondary da replies exactly`() {
+        val t = Term()
+        t.feed("\u001b[>c")
+        assertEquals("\u001b[>0;276;0c", t.responses.toString())
+    }
+
+    @Test
+    fun `csi 18 t reports character size`() {
+        val t = Term(cols = 20, rows = 6)
+        t.feed("\u001b[18t")
+        assertEquals("\u001b[8;6;20t", t.responses.toString())
     }
 
     // ------------------------------------------------------------ OSC

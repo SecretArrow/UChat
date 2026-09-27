@@ -52,7 +52,14 @@ class AppContainer(context: Context) {
             outputTap = { sessionId, bytes, length -> replayCache.offer(sessionId, bytes, length) }
         )
     val installer: UbuntuInstaller =
-        UbuntuInstaller(paths, assetRegistry, appScope, bundledProot = { paths.bundledProot })
+        UbuntuInstaller(
+            paths,
+            assetRegistry,
+            appScope,
+            bundledProot = { paths.bundledProot },
+            // Localized installer errors (EN + ID) resolved from the application context.
+            strings = { resId, args -> appContext.getString(resId, *args) },
+        )
 
     val shell: Shell by lazy { Shell(paths, abi) }
 

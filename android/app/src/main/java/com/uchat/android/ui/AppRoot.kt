@@ -152,6 +152,12 @@ fun AppRoot(container: AppContainer) {
     var restoreAttempted by rememberSaveable { mutableStateOf(false) }
     val recordedExits = remember { java.util.concurrent.ConcurrentHashMap.newKeySet<Long>() }
 
+    // The finished wizard ("10. Ready 🎉" + Done) stays on screen until the user taps Done.
+    // Before the ready-marker existed the dashboard replaced the wizard the moment step 3
+    // produced /bin/bash, hiding steps 4–10; now the wizard only releases AFTER a successful
+    // finish AND an explicit dismissal.
+    var wizardDismissed by rememberSaveable { mutableStateOf(false) }
+
     // Built-in text editor state for the Files tab (guest path + buffered content).
     var editTarget by remember { mutableStateOf<String?>(null) }
     var editText by remember { mutableStateOf("") }
@@ -311,7 +317,12 @@ fun AppRoot(container: AppContainer) {
                         // Until Ubuntu exists the HOME tab IS the install wizard — always showing
                         // live step progress, the download bar and any fatal error with retry.
                         // (Previously the wizard was orphaned and the user saw nothing happen.)
-                        if (!container.paths.isUbuntuInstalled) {
+                        // Once installed, the finished wizard remains visible until dismissed so
+                        // the user actually sees "10. Ready" before the dashboard takes over.
+                        if (
+                            !container.paths.isUbuntuInstalled ||
+                                (installState.finished && !wizardDismissed)
+                        ) {
                             InstallWizardScreen(
                                 abi = container.abi,
                                 registry = container.assetRegistry,
@@ -321,7 +332,7 @@ fun AppRoot(container: AppContainer) {
                                 onPause = { container.installer.pause() },
                                 onResume = { container.installer.resume(container.abi) },
                                 onCancel = { container.installer.cancel() },
-                                onReady = { /* dashboard renders automatically once installed */},
+                                onReady = { wizardDismissed = true },
                                 modifier = commonModifier,
                             )
                         } else {
