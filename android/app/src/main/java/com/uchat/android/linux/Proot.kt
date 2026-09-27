@@ -35,8 +35,21 @@ object Proot {
         innerCommand: List<String>,
         withWorkspace: Boolean = true,
     ): List<String> {
-        require(paths.isUbuntuInstalled) {
-            "Ubuntu rootfs or proot binary is missing (proot=${paths.effectiveProotBinary})"
+        // BOOTSTRAP check (bash + proot), NOT the step-10 ready marker: the installer itself
+        // runs scripts (steps 5-9) after extraction but before completion. Gating this on
+        // isUbuntuInstalled made v1.5.0 crash at step 5 on every device ("rootfs or proot binary
+        // is missing") and burned the user's data plan with rootfs re-downloads on each retry.
+        require(paths.isUbuntuBootstrapped) {
+            val missing = buildList {
+                if (!File(paths.ubuntuRoot, "bin/bash").isFile) add("/bin/bash (rootfs not extracted)")
+                val proot = paths.effectiveProotBinary
+                if (!proot.isFile || !proot.canExecute()) add("proot (${proot.absolutePath})")
+            }
+            if (missing.isEmpty()) {
+                "Ubuntu environment is not bootstrapped yet (transient state check failed)"
+            } else {
+                "Ubuntu environment is not bootstrapped yet — missing: ${missing.joinToString(", ")}"
+            }
         }
         val args =
             mutableListOf(

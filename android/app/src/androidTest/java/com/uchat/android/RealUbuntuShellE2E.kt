@@ -79,6 +79,11 @@ class RealUbuntuShellE2E {
             File(paths.ubuntuRoot, it).mkdirs()
         }
 
+        // REGRESSION (v1.5.0): the installer itself runs steps 5-9 through Proot.argv in exactly
+        // this state — bootstrapped (bash + proot) but NO ready marker yet. Gating argv on the
+        // marker crashed step 5 on every real device. argv must build without throwing here.
+        Proot.argv(paths, abi, listOf("/bin/echo", "BOOTSTRAP_OK"))
+
         // The app must now consider Ubuntu installed — production semantics require the
         // step-10 ready marker (a bare /bin/bash ships inside the rootfs and proves nothing).
         paths.markInstalled()

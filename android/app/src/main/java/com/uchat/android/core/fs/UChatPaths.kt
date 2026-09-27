@@ -83,6 +83,16 @@ class UChatPaths(context: Context) {
             return isInstalled(ubuntuRoot, effectiveProotBinary, marker)
         }
 
+    /**
+     * The environment can EXECUTE proot commands (bash + proot present) but is not necessarily
+     * fully installed yet. This is exactly the state the installer's own steps 5-9 run in —
+     * they must never be gated on the step-10 ready marker. Regression: v1.5.0 gated
+     * Proot.argv on isUbuntuInstalled, so step 5 crashed with "rootfs or proot binary is
+     * missing" on every real device, and every retry re-downloaded the rootfs.
+     */
+    val isUbuntuBootstrapped: Boolean
+        get() = isBootstrapped(ubuntuRoot, effectiveProotBinary)
+
     /** Marks the environment as fully installed (called by the installer at step 10). */
     fun markInstalled() {
         readyMarker.parentFile?.mkdirs()
@@ -93,6 +103,39 @@ class UChatPaths(context: Context) {
     fun unmarkInstalled() {
         readyMarker.delete()
     }
+
+    /**
+     * Persisted installer resume state: the id of the step a previous run failed at. Kept in a
+     * plain file so a retry still skips completed work after the process dies (the installer's
+     * in-memory [resumableStep] does not survive process death).
+     */
+    val installResumeFile: File
+        get() = File(filesDir, "install-resume.txt")
+
+    /** Persists the failed step id (called by the installer on every failure). */
+    fun saveInstallResume(stepId: Int) {
+        try {
+            installResumeFile.writeText(stepId.toString())
+        } catch (_: Exception) {
+            // Resume persistence is an optimization — never fail the installer over it.
+        }
+    }
+
+    /** Clears the persisted resume state (installer success or explicit reset). */
+    fun clearInstallResume() {
+        try {
+            installResumeFile.delete()
+        } catch (_: Exception) {
+        }
+    }
+
+    /** Reads the persisted failed step id, or null when absent/corrupt. */
+    fun loadInstallResume(): Int? =
+        try {
+            installResumeFile.takeIf { it.isFile }?.readText()?.trim()?.toIntOrNull()
+        } catch (_: Exception) {
+            null
+        }
 
     /** Creates the whole layout; safe to call repeatedly. */
     fun ensureDirs() {
@@ -117,6 +160,17 @@ class UChatPaths(context: Context) {
     fun totalCapacityBytes(): Long = filesDir.totalSpace
 
     companion object {
+        /**
+         * Pure bootstrap decision (unit-testable, no Android context): /bin/bash is present AND
+         * an executable proot binary is available. Deliberately marker-free — the installer runs
+         * proot commands between extraction (step 3) and completion (step 10).
+         */
+        fun isBootstrapped(ubuntuRoot: File, proot: File?): Boolean =
+            File(ubuntuRoot, "bin/bash").isFile &&
+                proot != null &&
+                proot.isFile &&
+                proot.canExecute()
+
         /**
          * Pure install decision (unit-testable, no Android context): the environment counts as
          * installed only when the step-10 ready marker exists, /bin/bash is present AND an

@@ -120,6 +120,7 @@ class UbuntuInstaller(
         cancel()
         stateInternal.value = InstallState()
         resumableStep = null
+        paths.clearInstallResume()
     }
 
     // ------------------------------------------------------------------ //
@@ -160,111 +161,140 @@ class UbuntuInstaller(
         stateInternal.value = stateInternal.value.copy(running = true, paused = false, fatal = null)
 
         try {
-            // Step 1 — download rootfs (resumable, size-verified)
-            if (resumableStep == null)
-                setStepStatus(InstallStep.DOWNLOAD_ROOTFS, StepStatus.Running)
-            appendLog("rootfs: ${rootfsEntry.name}")
-
-            // Pre-flight checks so failures surface in seconds, not after a 30 MB download.
-            if (!probeUrl(rootfsEntry.url)) {
-                fail(
-                    InstallStep.DOWNLOAD_ROOTFS,
-                    AppError(
-                        title = strings.get(R.string.installer_error_network_title),
-                        reason =
-                            strings.get(R.string.installer_error_network_reason, rootfsEntry.url),
-                    ),
+            // Resume plan: NEVER repeat completed work. Re-downloading the ~30 MB rootfs on
+            // every retry burned the user's mobile data plan (v1.5.0 regression report) —
+            // retries must jump straight to the step that actually failed.
+            val archiveFile = File(paths.downloadsDir, rootfsEntry.id + ".download")
+            val resume =
+                InstallResume.decide(
+                    resumable = resumableStep ?: restoreResumableStep(),
+                    archiveExists = archiveFile.isFile && archiveFile.length() > 0,
+                    rootfsHasBash = File(paths.ubuntuRoot, "bin/bash").isFile,
                 )
-                return
+            if (resume.fromStep != InstallStep.DOWNLOAD_ROOTFS) {
+                appendLog("resuming from step ${resume.fromStep.id} — completed steps are skipped")
             }
-            val usable = paths.totalUsableBytes()
-            if (usable < requirement.minFreeBytes) {
-                fail(
-                    InstallStep.DOWNLOAD_ROOTFS,
-                    AppError(
-                        title = strings.get(R.string.installer_error_storage_title),
-                        reason =
-                            strings.get(
-                                R.string.installer_error_storage_reason,
-                                Format.bytes(usable),
-                                Format.bytes(requirement.minFreeBytes),
+
+            var rootfsFile: File? = null
+            if (resume.skipArchive) {
+                // The rootfs is already extracted on disk — reflect steps 1-3 as Done and move on.
+                appendLog("rootfs already extracted — download/verify/extract skipped")
+                setStepStatus(InstallStep.DOWNLOAD_ROOTFS, StepStatus.Done)
+                setStepStatus(InstallStep.VERIFY_CHECKSUM, StepStatus.Done)
+                setStepStatus(InstallStep.EXTRACT_ROOTFS, StepStatus.Done)
+            } else {
+                // Step 1 — download rootfs (resumable byte-wise, size-verified)
+                if (resume.reuseArchive) {
+                    rootfsFile = archiveFile
+                    appendLog(
+                        "reusing downloaded archive ${archiveFile.name} " +
+                            "(${Format.bytes(archiveFile.length())})",
+                    )
+                    setStepStatus(InstallStep.DOWNLOAD_ROOTFS, StepStatus.Done)
+                } else {
+                    setStepStatus(InstallStep.DOWNLOAD_ROOTFS, StepStatus.Running)
+                    appendLog("rootfs: ${rootfsEntry.name}")
+
+                    // Pre-flight checks so failures surface in seconds, not after a 30 MB download.
+                    if (!probeUrl(rootfsEntry.url)) {
+                        fail(
+                            InstallStep.DOWNLOAD_ROOTFS,
+                            AppError(
+                                title = strings.get(R.string.installer_error_network_title),
+                                reason =
+                                    strings.get(R.string.installer_error_network_reason, rootfsEntry.url),
                             ),
-                    ),
-                )
-                return
-            }
-
-            val rootfsFile =
-                downloadAsset(rootfsEntry) { p ->
-                    stateInternal.value =
-                        stateInternal.value.copy(
-                            rootfsDownloadedBytes = p.downloadedBytes,
-                            rootfsTotalBytes = p.totalBytes,
-                            rootfsSpeedBps = p.bytesPerSecond,
-                            rootfsEtaSeconds = p.etaSeconds,
                         )
-                }
-            setStepStatus(InstallStep.DOWNLOAD_ROOTFS, StepStatus.Done)
+                        return
+                    }
+                    val usable = paths.totalUsableBytes()
+                    if (usable < requirement.minFreeBytes) {
+                        fail(
+                            InstallStep.DOWNLOAD_ROOTFS,
+                            AppError(
+                                title = strings.get(R.string.installer_error_storage_title),
+                                reason =
+                                    strings.get(
+                                        R.string.installer_error_storage_reason,
+                                        Format.bytes(usable),
+                                        Format.bytes(requirement.minFreeBytes),
+                                    ),
+                            ),
+                        )
+                        return
+                    }
 
-            // Step 2 — verify checksums before anything touches disk layout
-            setStepStatus(InstallStep.VERIFY_CHECKSUM, StepStatus.Running)
-            appendLog("verifying ${rootfsEntry.id}")
-            if (!Checksum.matches(rootfsFile, rootfsEntry.sha256)) {
-                rootfsFile.delete()
-                fail(
-                    InstallStep.VERIFY_CHECKSUM,
-                    AppError(
-                        title = strings.get(R.string.installer_error_checksum_title),
-                        reason = strings.get(R.string.installer_error_checksum_reason, "rootfs"),
-                    ),
-                )
-                return
-            }
-            if (bundled == null) {
-                val prootFile = downloadAsset(prootEntry!!)
-                if (!Checksum.matches(prootFile, prootEntry.sha256)) {
-                    prootFile.delete()
+                    rootfsFile =
+                        downloadAsset(rootfsEntry) { p ->
+                            stateInternal.value =
+                                stateInternal.value.copy(
+                                    rootfsDownloadedBytes = p.downloadedBytes,
+                                    rootfsTotalBytes = p.totalBytes,
+                                    rootfsSpeedBps = p.bytesPerSecond,
+                                    rootfsEtaSeconds = p.etaSeconds,
+                                )
+                        }
+                    setStepStatus(InstallStep.DOWNLOAD_ROOTFS, StepStatus.Done)
+                }
+
+                // Step 2 — verify checksums before anything touches disk layout
+                val verifiedFile = rootfsFile!!
+                setStepStatus(InstallStep.VERIFY_CHECKSUM, StepStatus.Running)
+                appendLog("verifying ${rootfsEntry.id}")
+                if (!Checksum.matches(verifiedFile, rootfsEntry.sha256)) {
+                    verifiedFile.delete()
                     fail(
                         InstallStep.VERIFY_CHECKSUM,
                         AppError(
                             title = strings.get(R.string.installer_error_checksum_title),
-                            reason = strings.get(R.string.installer_error_checksum_reason, "proot"),
+                            reason = strings.get(R.string.installer_error_checksum_reason, "rootfs"),
                         ),
                     )
                     return
                 }
-                paths.runtimeDir.mkdirs()
-                prootFile.copyTo(paths.prootBinary, overwrite = true)
-                prootFile.delete()
-                paths.prootBinary.setExecutable(true, false)
-            } else {
-                appendLog("proot bundled in APK — no download needed")
-            }
-            setStepStatus(InstallStep.VERIFY_CHECKSUM, StepStatus.Done)
+                if (bundled == null) {
+                    val prootFile = downloadAsset(prootEntry!!)
+                    if (!Checksum.matches(prootFile, prootEntry.sha256)) {
+                        prootFile.delete()
+                        fail(
+                            InstallStep.VERIFY_CHECKSUM,
+                            AppError(
+                                title = strings.get(R.string.installer_error_checksum_title),
+                                reason = strings.get(R.string.installer_error_checksum_reason, "proot"),
+                            ),
+                        )
+                        return
+                    }
+                    paths.runtimeDir.mkdirs()
+                    prootFile.copyTo(paths.prootBinary, overwrite = true)
+                    prootFile.delete()
+                    paths.prootBinary.setExecutable(true, false)
+                } else {
+                    appendLog("proot bundled in APK — no download needed")
+                }
+                setStepStatus(InstallStep.VERIFY_CHECKSUM, StepStatus.Done)
 
-            // Step 3 — extract rootfs (safe extractor)
-            setStepStatus(InstallStep.EXTRACT_ROOTFS, StepStatus.Running)
-            appendLog("extracting ${rootfsFile.name}")
-            // A fresh full install re-extracts the rootfs: drop the old ready marker up-front
-            // (it lives inside ubuntuRoot, so deleteRecursively removes it anyway — the explicit
-            // call is for clarity and lets us log the transition).
-            val hadMarker = paths.readyMarker.exists()
-            if (resumableStep == null) {
+                // Step 3 — extract rootfs (safe extractor)
+                setStepStatus(InstallStep.EXTRACT_ROOTFS, StepStatus.Running)
+                appendLog("extracting ${verifiedFile.name}")
+                // Extraction always produces a fresh tree: any old ready marker is dropped
+                // (the tree is deleted below anyway — the explicit call keeps state honest).
+                val hadMarker = paths.readyMarker.exists()
                 paths.unmarkInstalled()
-                if (hadMarker) appendLog("fresh install — previous marker cleared")
+                if (hadMarker) appendLog("fresh extraction — previous marker cleared")
+                if (paths.ubuntuRoot.exists()) {
+                    paths.ubuntuRoot.deleteRecursively()
+                }
+                Extractor.extractTarGz(
+                    archive = verifiedFile,
+                    destination = paths.ubuntuRoot,
+                    estimatedTotalBytes = rootfsEntry.extractedBytes,
+                ) { done, total ->
+                    appendLog("extracted ${done}/${total} bytes")
+                }
+                verifiedFile.delete()
+                setStepStatus(InstallStep.EXTRACT_ROOTFS, StepStatus.Done)
             }
-            if (paths.ubuntuRoot.exists()) {
-                paths.ubuntuRoot.deleteRecursively()
-            }
-            Extractor.extractTarGz(
-                archive = rootfsFile,
-                destination = paths.ubuntuRoot,
-                estimatedTotalBytes = rootfsEntry.extractedBytes,
-            ) { done, total ->
-                appendLog("extracted ${done}/${total} bytes")
-            }
-            rootfsFile.delete()
-            setStepStatus(InstallStep.EXTRACT_ROOTFS, StepStatus.Done)
 
             paths.ensureDirs()
 
@@ -386,6 +416,7 @@ class UbuntuInstaller(
             }
             setStepStatus(InstallStep.READY, StepStatus.Done)
             resumableStep = null
+            paths.clearInstallResume()
             stateInternal.value =
                 stateInternal.value.copy(running = false, finished = true, currentStep = null)
             appendLog("installation finished successfully")
@@ -414,7 +445,18 @@ class UbuntuInstaller(
         Logs.installer("FAILED at $step: ${error.reason}")
         setStepStatus(step, StepStatus.Failed(error.redacted))
         resumableStep = step
+        // Persist across process death so a retry NEVER re-downloads completed work
+        // (mobile data plan protection).
+        paths.saveInstallResume(step.id)
         stateInternal.value = stateInternal.value.copy(running = false, fatal = error.redacted)
+    }
+
+    /** Restores the failed step from a previous process (plain file, survives process death). */
+    private fun restoreResumableStep(): InstallStep? {
+        val id = paths.loadInstallResume() ?: return null
+        return InstallStep.ordered().firstOrNull { it.id == id }?.also {
+            appendLog("restored resume state from a previous run: failed at step ${it.id}")
+        }
     }
 
     private suspend fun downloadAsset(
