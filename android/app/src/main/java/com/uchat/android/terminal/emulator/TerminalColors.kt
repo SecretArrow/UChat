@@ -5,9 +5,9 @@ package com.uchat.android.terminal.emulator
  * foreground/background. Colors are stored as packed ARGB ints for fast rendering.
  *
  * The defaults (bg/fg/cursor/selection + the 16-color palette) are scheme-aware so the whole
- * terminal follows the app's dark/light theme ([applyLightScheme]). The renderer and the
- * emulator only ever read these vars at draw time, so switching scheme takes effect on the
- * next frame without touching the buffer.
+ * terminal follows the app's dark/light theme ([applyLightScheme]). The renderer and the emulator
+ * only ever read these vars at draw time, so switching scheme takes effect on the next frame
+ * without touching the buffer.
  */
 object TerminalColors {
 
@@ -59,23 +59,29 @@ object TerminalColors {
             0xFF3B4051.toInt(), // 15 bright white
         )
 
-    @Volatile var PALETTE_16: IntArray = DARK_PALETTE_16
+    @Volatile
+    var PALETTE_16: IntArray = DARK_PALETTE_16
         private set
 
-    @Volatile var CURSOR_COLOR: Int = DARK_CURSOR_COLOR
+    @Volatile
+    var CURSOR_COLOR: Int = DARK_CURSOR_COLOR
         private set
 
-    @Volatile var SELECTION_COLOR: Int = DARK_SELECTION_COLOR
+    @Volatile
+    var SELECTION_COLOR: Int = DARK_SELECTION_COLOR
         private set
 
     /** Default screen colors — scheme-aware (see [applyLightScheme]). */
-    @Volatile var BG_DEFAULT: Int = DARK_BG_DEFAULT
+    @Volatile
+    var BG_DEFAULT: Int = DARK_BG_DEFAULT
         private set
 
-    @Volatile var FG_DEFAULT: Int = DARK_FG_DEFAULT
+    @Volatile
+    var FG_DEFAULT: Int = DARK_FG_DEFAULT
         private set
 
-    @Volatile var BG_ALT_DEFAULT: Int = DARK_BG_DEFAULT
+    @Volatile
+    var BG_ALT_DEFAULT: Int = DARK_BG_DEFAULT
         private set
 
     private const val DARK_CURSOR_COLOR = 0xFF7DEBC2.toInt()

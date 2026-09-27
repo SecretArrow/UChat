@@ -32,8 +32,7 @@ class MainActivity : ComponentActivity() {
             // The user's SYSTEM/DARK/LIGHT pick drives the whole app, terminal canvas included.
             val settings by
                 container.settingsRepository.settings.collectAsState(initial = UChatSettings())
-            val darkTheme =
-                resolveDarkTheme(settings.appThemeMode, isSystemInDarkTheme())
+            val darkTheme = resolveDarkTheme(settings.appThemeMode, isSystemInDarkTheme())
             // Status/navigation bar icons must contrast with the *chosen* theme, not the OS
             // one — otherwise forcing Light while the system is dark leaves white icons on a
             // white screen.

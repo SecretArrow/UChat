@@ -1,6 +1,5 @@
 package com.uchat.android.ui.theme
 
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -56,8 +55,8 @@ private val LightColors =
     )
 
 /**
- * Resolve the effective dark flag from the user's theme mode. Pure so it is unit-testable:
- * SYSTEM follows the OS, DARK/LIGHT force their mode regardless of the OS setting.
+ * Resolve the effective dark flag from the user's theme mode. Pure so it is unit-testable: SYSTEM
+ * follows the OS, DARK/LIGHT force their mode regardless of the OS setting.
  */
 fun resolveDarkTheme(mode: AppThemeMode, systemDark: Boolean): Boolean =
     when (mode) {
@@ -67,19 +66,19 @@ fun resolveDarkTheme(mode: AppThemeMode, systemDark: Boolean): Boolean =
     }
 
 /**
- * The terminal chrome scheme that matches the resolved theme mode. The scheme instances live
- * next to the terminal UI (single source of truth for the role colors).
+ * The terminal chrome scheme that matches the resolved theme mode. The scheme instances live next
+ * to the terminal UI (single source of truth for the role colors).
  */
 private fun terminalScheme(dark: Boolean): TerminalScheme =
     if (dark) DarkTerminalScheme else LightTerminalScheme
 
 /**
- * UChat theme: the user picks SYSTEM/DARK/LIGHT in Settings and the whole app follows —
- * Material colors, terminal chrome ([LocalTerminalPalette]) and the terminal canvas itself
+ * UChat theme: the user picks SYSTEM/DARK/LIGHT in Settings and the whole app follows — Material
+ * colors, terminal chrome ([LocalTerminalPalette]) and the terminal canvas itself
  * ([TerminalColors.applyLightScheme]).
  *
- * Brand palettes are used in both modes (no Material You dynamic color): the theme switch
- * must look identical on every device, and the terminal identity is JuiceSSH-inspired.
+ * Brand palettes are used in both modes (no Material You dynamic color): the theme switch must look
+ * identical on every device, and the terminal identity is JuiceSSH-inspired.
  */
 @Composable
 fun UChatTheme(

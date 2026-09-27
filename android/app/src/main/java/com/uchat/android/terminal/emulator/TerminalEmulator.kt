@@ -450,20 +450,22 @@ class TerminalEmulator(
     }
 
     /**
-     * DECSCUSR cursor shape: 0/1 default (blinking block), 2 blink block, 3 steady block,
-     * 4 blink underline, 5 steady underline, 6 blink bar, 7 steady bar.
+     * DECSCUSR cursor shape: 0/1 default (blinking block), 2 blink block, 3 steady block, 4 blink
+     * underline, 5 steady underline, 6 blink bar, 7 steady bar.
      */
     var cursorShape: Int = 0
         private set
 
     /**
-     * Whether the active DECSCUSR shape is a blinking variant. Steady shapes (3/5/7) never
-     * blink — ignoring this made the cursor visibly jump/hide under apps like Neovim, fish
-     * and tmux that request a steady cursor.
+     * Whether the active DECSCUSR shape is a blinking variant. Steady shapes (3/5/7) never blink —
+     * ignoring this made the cursor visibly jump/hide under apps like Neovim, fish and tmux that
+     * request a steady cursor.
      */
     fun cursorShapeBlinks(): Boolean =
         when (cursorShape) {
-            3, 5, 7 -> false
+            3,
+            5,
+            7 -> false
             else -> true
         }
 

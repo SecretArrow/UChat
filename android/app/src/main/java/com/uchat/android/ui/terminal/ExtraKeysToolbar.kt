@@ -44,9 +44,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Terminal chrome scheme (matches assets/terminal/index.html — dark, high contrast).
- * Both the dark and light instance keep the same role names so every screen of the terminal
- * UI switches theme without touching its call sites.
+ * Terminal chrome scheme (matches assets/terminal/index.html — dark, high contrast). Both the dark
+ * and light instance keep the same role names so every screen of the terminal UI switches theme
+ * without touching its call sites.
  */
 @androidx.compose.runtime.Immutable
 data class TerminalScheme(
@@ -97,8 +97,8 @@ val LocalTerminalPalette =
     androidx.compose.runtime.staticCompositionLocalOf<TerminalScheme> { DarkTerminalScheme }
 
 /**
- * Composable accessor that keeps the historical `TerminalPalette.X` call sites working while
- * the underlying scheme now follows the app's dark/light theme.
+ * Composable accessor that keeps the historical `TerminalPalette.X` call sites working while the
+ * underlying scheme now follows the app's dark/light theme.
  */
 val TerminalPalette: TerminalScheme
     @Composable get() = LocalTerminalPalette.current

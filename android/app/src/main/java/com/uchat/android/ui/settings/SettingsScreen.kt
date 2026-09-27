@@ -73,7 +73,10 @@ fun SettingsScreen(
                                     )
                                 )
                             },
-                            modifier = Modifier.padding(end = if (index < AppThemeMode.entries.size - 1) 8.dp else 0.dp),
+                            modifier =
+                                Modifier.padding(
+                                    end = if (index < AppThemeMode.entries.size - 1) 8.dp else 0.dp
+                                ),
                         )
                     }
                 }
