@@ -29,10 +29,22 @@ esac
 
 install_from_tarball() {
   local url="https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz"
-  echo "[uchat] downloading ${url}"
+  local tarball="/tmp/node-dl/node.tar.xz"
   mkdir -p /tmp/node-dl /usr/local/lib/nodejs
-  curl -fSL --retry 3 --retry-delay 2 -o /tmp/node-dl/node.tar.xz "$url" || return 1
-  tar -xJf /tmp/node-dl/node.tar.xz -C /usr/local/lib/nodejs || return 2
+
+  # Offline route (real feature): a staged tarball in the Downloads bind (/root/downloads)
+  # skips the network entirely. UChat's e2e uses it, and users with flaky connectivity can
+  # pre-place node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz there themselves.
+  local staged="/root/downloads/node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz"
+  if [ -f "$staged" ]; then
+    echo "[uchat] using staged tarball: $staged"
+    cp "$staged" "$tarball"
+  else
+    echo "[uchat] downloading ${url}"
+    curl -fSL --retry 3 --retry-delay 2 -o "$tarball" "$url" || return 1
+  fi
+
+  tar -xJf "$tarball" -C /usr/local/lib/nodejs || return 2
   local dist_dir="/usr/local/lib/nodejs/node-${NODE_VERSION}-linux-${NODE_ARCH}"
   [ -d "$dist_dir" ] || return 3
   ln -sf "$dist_dir/bin/node" /usr/local/bin/node

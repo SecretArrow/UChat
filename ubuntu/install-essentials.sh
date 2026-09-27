@@ -6,7 +6,12 @@ set -uo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 echo "[uchat] apt-get update"
-apt-get update -qq || exit 1
+# No -qq here: quiet mode hides the E: diagnostics, which once made a CI failure look like
+# "rc=1" with no cause. One visible retry gives real devices resilience against flaky mirrors.
+if ! apt-get update; then
+  echo "[uchat] apt-get update failed — retrying once"
+  apt-get update || exit 1
+fi
 
 echo "[uchat] installing essential packages"
 apt-get install -y --no-install-recommends \
