@@ -69,18 +69,32 @@ class Shell(private val paths: UChatPaths, private val abi: DeviceAbi) {
 
             val stdout = StringBuilder()
             val stderr = StringBuilder()
-            val outThread = Thread {
-                process.inputStream.bufferedReader().forEachLine { line ->
-                    stdout.appendLine(line)
-                    onLine?.invoke(line)
+            // Daemon reader threads that NEVER let exceptions escape: when a process is
+            // killed on pause, its pipe can be held open by orphaned grandchildren or closed
+            // under the reader (InterruptedIOException) — an uncaught exception here would
+            // crash the whole app process (seen on the emulator in the first CI round).
+            val outThread =
+                Thread {
+                    try {
+                        process.inputStream.bufferedReader().forEachLine { line ->
+                            stdout.appendLine(line)
+                            onLine?.invoke(line)
+                        }
+                    } catch (_: Exception) {
+                        // stream torn down — whatever was read is already captured
+                    }
                 }
-            }
-            val errThread = Thread {
-                process.errorStream.bufferedReader().forEachLine { line ->
-                    stderr.appendLine(line)
-                    onLine?.invoke(line)
+            val errThread =
+                Thread {
+                    try {
+                        process.errorStream.bufferedReader().forEachLine { line ->
+                            stderr.appendLine(line)
+                            onLine?.invoke(line)
+                        }
+                    } catch (_: Exception) {}
                 }
-            }
+            outThread.isDaemon = true
+            errThread.isDaemon = true
             outThread.start()
             errThread.start()
 
@@ -113,7 +127,13 @@ class Shell(private val paths: UChatPaths, private val abi: DeviceAbi) {
                         }
                 }
 
-            val finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
+            val finished =
+                try {
+                    process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    false
+                }
             watchdog?.interrupt()
             if (paused.get()) {
                 outThread.join(5000)

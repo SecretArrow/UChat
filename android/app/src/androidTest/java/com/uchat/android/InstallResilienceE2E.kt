@@ -148,7 +148,9 @@ class InstallResilienceE2E {
         val started = System.currentTimeMillis()
         try {
             shell.exec(
-                listOf("/bin/bash", "-c", "echo ALIVE; sleep 120; echo NEVER"),
+                // `exec sleep` replaces bash, so the pause-kill leaves NO orphan holding the
+                // output pipe — the readers get a clean EOF right after the kill.
+                listOf("/bin/bash", "-c", "echo ALIVE; exec sleep 300"),
                 timeoutSeconds = 60,
                 pauseRequested = { flag.get() },
             )

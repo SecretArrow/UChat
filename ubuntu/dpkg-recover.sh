@@ -11,6 +11,28 @@ set -uo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
+# 0. If a package manager is STILL running (e.g. an apt process that survived a pause-kill
+#    is finishing its current dpkg action), wait for it — never yank locks out from under a
+#    live dpkg. /proc inside proot shows the host process table; comm names are enough.
+busy=1
+waited=0
+while [ "$waited" -lt 60 ]; do
+  busy=0
+  for comm_file in /proc/[0-9]*/comm; do
+    read -r name < "$comm_file" 2>/dev/null || continue
+    case "$name" in
+      dpkg|dpkg-deb|dpkg-query|dpkg-trigger|apt|apt-get|apt-cache|apt-config|apt-key|unattended-upgr) busy=1; break ;;
+    esac
+  done
+  [ "$busy" = "0" ] && break
+  sleep 1
+  waited=$((waited + 1))
+done
+if [ "$busy" != "0" ]; then
+  echo "[uchat] another package manager is still running — retry in a moment"
+  exit 1
+fi
+
 # 1. Stale locks. This proot session is single-user — UChat serializes every package
 #    operation, so a lock file with no dpkg/apt process alive is debris from a killed run.
 #    (fuser/pgrep are not installed in the minimal rootfs; the single-user guarantee makes
