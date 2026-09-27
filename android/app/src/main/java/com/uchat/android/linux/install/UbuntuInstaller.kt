@@ -39,15 +39,15 @@ fun interface InstallerStrings {
 val EnglishInstallerStrings: InstallerStrings = InstallerStrings { resId, _ ->
     when (resId) {
         R.string.installer_error_unsupported_title -> "Unsupported architecture"
-        R.string.installer_error_unsupported_reason -> "Ubuntu 24.04 has no rootfs for %1$s."
+        R.string.installer_error_unsupported_reason -> "Ubuntu 24.04 has no rootfs for %1\$s."
         R.string.installer_error_network_title -> "Network unreachable"
         R.string.installer_error_network_reason ->
-            "Cannot reach %1$s. Check the internet connection and try again."
+            "Cannot reach %1\$s. Check the internet connection and try again."
         R.string.installer_error_storage_title -> "Not enough storage"
-        R.string.installer_error_storage_reason -> "%1$s free, but at least %2$s is required."
+        R.string.installer_error_storage_reason -> "%1\$s free, but at least %2\$s is required."
         R.string.installer_error_checksum_title -> "Checksum mismatch"
         R.string.installer_error_checksum_reason ->
-            "The downloaded %1$s does not match the pinned SHA-256 — the download is corrupted."
+            "The downloaded %1\$s does not match the pinned SHA-256 — the download is corrupted."
         R.string.installer_error_apt_title -> "apt install failed"
         R.string.installer_error_runtime_title -> "Runtime install failed"
         R.string.installer_error_opencode_title -> "OpenCode install failed"
@@ -57,7 +57,7 @@ val EnglishInstallerStrings: InstallerStrings = InstallerStrings { resId, _ ->
         R.string.installer_error_marker_reason ->
             "Writing the completion marker failed — storage may be full or unavailable."
         R.string.installer_error_generic_title -> "Installation failed"
-        R.string.installer_error_generic_reason -> "Unexpected error: %1$s"
+        R.string.installer_error_generic_reason -> "Unexpected error: %1\$s"
         else -> ""
     }
 }
