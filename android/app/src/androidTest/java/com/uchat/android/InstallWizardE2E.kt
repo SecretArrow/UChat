@@ -4,7 +4,9 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.printToString
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -76,17 +78,13 @@ class InstallWizardE2E {
             // message separates a wiring regression (callback never fired / state never moved)
             // from a rendering problem (state moved but UI didn't show it).
             val app = composeRule.activity.application as com.uchat.android.UChatApp
-            val installState = app.container.installer.state.value
-            val summary =
-                "running=${installState.running} paused=${installState.paused} " +
-                    "currentStep=${installState.currentStep} fatal=${installState.fatal} " +
-                    "statuses={" +
-                    installState.statuses.entries.joinToString(", ") { "${it.key}=${it.value}" } +
-                    "}"
+            val st1 = app.container.installer.state.value
+            val summary1 =
+                "running=${st1.running} paused=${st1.paused} currentStep=${st1.currentStep} " +
+                    "fatal=${st1.fatal}"
 
             // If the Start button is disabled (emulator storage below the pinned requirement) the
             // tap cannot trigger anything — an environment limitation, not a wiring regression.
-            // In that case the wizard MUST still show the storage shortfall warning.
             val startEnabled =
                 try {
                     composeRule.onNodeWithText(text(R.string.install_start)).assertIsEnabled()
@@ -95,9 +93,25 @@ class InstallWizardE2E {
                     false
                 }
             if (startEnabled) {
+                // Isolate UI wiring vs installer: invoke the installer directly.
+                app.container.installer.start(app.container.abi)
+                val directReacted =
+                    try {
+                        composeRule.waitUntil(timeoutMillis = 20_000) {
+                            val s = app.container.installer.state.value
+                            s.running || s.currentStep != null || s.fatal != null
+                        }
+                        true
+                    } catch (e: Throwable) {
+                        false
+                    }
+                val st2 = app.container.installer.state.value
+                val tree = composeRule.onRoot().printToString().lines().take(120).joinToString("\n")
                 fail(
-                    "Install tap produced no visible state (running/pause/cancel/error) — " +
-                        "wizard wiring regression. Installer state: $summary",
+                    "Install tap produced no visible state. | tapState: $summary1 | " +
+                        "directStartReacted=$directReacted | afterDirect: " +
+                        "running=${st2.running} currentStep=${st2.currentStep} " +
+                        "fatal=${st2.fatal} | tree:\n$tree",
                 )
             }
             assertTrue(

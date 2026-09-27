@@ -14,6 +14,7 @@ import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -126,7 +127,30 @@ class ProotExecE2E {
                 .redirectErrorStream(true)
                 .start()
         val output = process.inputStream.bufferedReader().readText()
-        assertTrue(process.waitFor(60, TimeUnit.SECONDS))
+        val ok = process.waitFor(60, TimeUnit.SECONDS) && process.exitValue() == 0
+        if (!ok) {
+            // Verbose diagnostic: show how proot translated the execve so failures are debuggable
+            // from CI alone.
+            val diag =
+                ProcessBuilder(
+                        proot.absolutePath,
+                        "-r",
+                        "/",
+                        "-v",
+                        "9",
+                        "-0",
+                        "/system/bin/true",
+                    )
+                    .apply { prootEnv(this) }
+                    .redirectErrorStream(true)
+                    .start()
+            val diagOut = diag.inputStream.bufferedReader().readText()
+            diag.waitFor(30, TimeUnit.SECONDS)
+            fail(
+                "pivot failed rc=${process.exitValue()} out=$output | " +
+                    "verbose diag rc=${diag.exitValue()}:\n${diagOut.take(3500)}",
+            )
+        }
         assertEquals("proot+shell must exit 0, output was: $output", 0, process.exitValue())
         assertTrue("marker missing in: $output", output.contains(marker))
         assertTrue("fake root (uid 0) missing in: $output", output.lines().any { it.trim() == "0" })
