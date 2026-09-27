@@ -18,8 +18,8 @@ import kotlin.math.min
 data class GridTransform(val scale: Float, val offsetX: Float, val offsetY: Float) {
 
     /**
-     * Outcome of the fit-screen computation: the placement plus the column count the emulator
-     * must use (may be raised to the MIN_COLS floor).
+     * Outcome of the fit-screen computation: the placement plus the column count the emulator must
+     * use (may be raised to the MIN_COLS floor).
      */
     data class Fitted(val transform: GridTransform, val cols: Int)
 
@@ -52,7 +52,6 @@ data class GridTransform(val scale: Float, val offsetX: Float, val offsetY: Floa
 
         /**
          * Fit-screen placement for a viewport-derived grid of [cols]×[rows].
-         *
          * - [cols] ≥ [minCols]: identity — every derived column is drawn 1:1.
          * - [cols] < [minCols]: the grid is widened to [minCols] and [solve] scales it down and
          *   centers it, so the whole (wider) grid fits the viewport. The returned [Fitted.cols] is

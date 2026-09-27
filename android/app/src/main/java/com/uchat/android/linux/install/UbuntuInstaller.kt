@@ -36,33 +36,31 @@ fun interface InstallerStrings {
 }
 
 /** English fallback mirroring res/values/strings.xml — used only when no provider is wired. */
-val EnglishInstallerStrings: InstallerStrings =
-    InstallerStrings { resId, _ ->
-        when (resId) {
-            R.string.installer_error_unsupported_title -> "Unsupported architecture"
-            R.string.installer_error_unsupported_reason -> "Ubuntu 24.04 has no rootfs for %1$s."
-            R.string.installer_error_network_title -> "Network unreachable"
-            R.string.installer_error_network_reason ->
-                "Cannot reach %1$s. Check the internet connection and try again."
-            R.string.installer_error_storage_title -> "Not enough storage"
-            R.string.installer_error_storage_reason ->
-                "%1$s free, but at least %2$s is required."
-            R.string.installer_error_checksum_title -> "Checksum mismatch"
-            R.string.installer_error_checksum_reason ->
-                "The downloaded %1$s does not match the pinned SHA-256 — the download is corrupted."
-            R.string.installer_error_apt_title -> "apt install failed"
-            R.string.installer_error_runtime_title -> "Runtime install failed"
-            R.string.installer_error_opencode_title -> "OpenCode install failed"
-            R.string.installer_error_claude_title -> "Claude Code install failed"
-            R.string.installer_error_health_title -> "Health check failed"
-            R.string.installer_error_marker_title -> "Could not finalize installation"
-            R.string.installer_error_marker_reason ->
-                "Writing the completion marker failed — storage may be full or unavailable."
-            R.string.installer_error_generic_title -> "Installation failed"
-            R.string.installer_error_generic_reason -> "Unexpected error: %1$s"
-            else -> ""
-        }
+val EnglishInstallerStrings: InstallerStrings = InstallerStrings { resId, _ ->
+    when (resId) {
+        R.string.installer_error_unsupported_title -> "Unsupported architecture"
+        R.string.installer_error_unsupported_reason -> "Ubuntu 24.04 has no rootfs for %1$s."
+        R.string.installer_error_network_title -> "Network unreachable"
+        R.string.installer_error_network_reason ->
+            "Cannot reach %1$s. Check the internet connection and try again."
+        R.string.installer_error_storage_title -> "Not enough storage"
+        R.string.installer_error_storage_reason -> "%1$s free, but at least %2$s is required."
+        R.string.installer_error_checksum_title -> "Checksum mismatch"
+        R.string.installer_error_checksum_reason ->
+            "The downloaded %1$s does not match the pinned SHA-256 — the download is corrupted."
+        R.string.installer_error_apt_title -> "apt install failed"
+        R.string.installer_error_runtime_title -> "Runtime install failed"
+        R.string.installer_error_opencode_title -> "OpenCode install failed"
+        R.string.installer_error_claude_title -> "Claude Code install failed"
+        R.string.installer_error_health_title -> "Health check failed"
+        R.string.installer_error_marker_title -> "Could not finalize installation"
+        R.string.installer_error_marker_reason ->
+            "Writing the completion marker failed — storage may be full or unavailable."
+        R.string.installer_error_generic_title -> "Installation failed"
+        R.string.installer_error_generic_reason -> "Unexpected error: %1$s"
+        else -> ""
     }
+}
 
 /**
  * The Ubuntu 24.04 installer: a resumable 10-step state machine (spec #4).
@@ -217,8 +215,7 @@ class UbuntuInstaller(
                     InstallStep.VERIFY_CHECKSUM,
                     AppError(
                         title = strings.get(R.string.installer_error_checksum_title),
-                        reason =
-                            strings.get(R.string.installer_error_checksum_reason, "rootfs"),
+                        reason = strings.get(R.string.installer_error_checksum_reason, "rootfs"),
                     ),
                 )
                 return
@@ -231,8 +228,7 @@ class UbuntuInstaller(
                         InstallStep.VERIFY_CHECKSUM,
                         AppError(
                             title = strings.get(R.string.installer_error_checksum_title),
-                            reason =
-                                strings.get(R.string.installer_error_checksum_reason, "proot"),
+                            reason = strings.get(R.string.installer_error_checksum_reason, "proot"),
                         ),
                     )
                     return

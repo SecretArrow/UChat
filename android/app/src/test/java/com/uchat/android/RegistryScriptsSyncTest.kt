@@ -158,7 +158,18 @@ class RegistryScriptsSyncTest {
             "healthcheck.sh must hard-fail with a MISSING tool list (enforced step 9)",
             health.contains("MISSING"),
         )
-        listOf("bash", "apt-get", "git", "curl", "node", "npm", "python3", "pip3", "opencode", "claude")
+        listOf(
+                "bash",
+                "apt-get",
+                "git",
+                "curl",
+                "node",
+                "npm",
+                "python3",
+                "pip3",
+                "opencode",
+                "claude"
+            )
             .forEach { cmd ->
                 assertTrue(
                     "healthcheck.sh must require '$cmd'",

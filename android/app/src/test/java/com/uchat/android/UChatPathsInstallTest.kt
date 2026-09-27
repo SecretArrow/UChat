@@ -11,8 +11,8 @@ import org.junit.Test
  * Unit tests for the install decision + legacy migration logic ([UChatPaths.isInstalled] /
  * [UChatPaths.migrateLegacyInstall]) — pure `File`-based companions, no Android context needed.
  *
- * Regression context: isUbuntuInstalled used to return true as soon as rootfs/bin/bash existed,
- * but the ubuntu-base tarball SHIPS /bin/bash — so the dashboard replaced the wizard right after
+ * Regression context: isUbuntuInstalled used to return true as soon as rootfs/bin/bash existed, but
+ * the ubuntu-base tarball SHIPS /bin/bash — so the dashboard replaced the wizard right after
  * extraction (step 3) while steps 4–10 were still running. The ready marker is now mandatory.
  */
 class UChatPathsInstallTest {
