@@ -102,7 +102,14 @@ object Proot {
                 "TMPDIR" to "/tmp",
                 "PATH" to
                     "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.local/bin:/root/.bun/bin:/root/.opencode/bin",
-                "PROOT_NO_SECCOMP" to "1",
+                // NOTE: PROOT_NO_SECCOMP must stay UNSET. It was set here from v1.0.0 (proot-me
+                // era) and silently broke every dpkg rename on x86_64 emulators/modern Android:
+                // with seccomp filtering disabled, proot's avoider + SIGSYS rewrite path for
+                // old syscalls (rename -> renameat) does not run and rename() returns ENOSYS
+                // ("error installing new file '/var/lib/dpkg/status': Function not implemented").
+                // Confirmed upstream: termux/proot#390 — "should be used only for debugging
+                // purposes; sometimes it creates more issues than it resolves". If a kernel
+                // refuses proot's seccomp filter, proot already degrades gracefully to ptrace.
                 // proot itself creates temp files on the HOST before starting the guest; Android
                 // has no /tmp, so point it at the app cache dir whenever we know it.
                 "PROOT_TMP_DIR" to (paths?.cacheDir?.absolutePath ?: "/tmp"),

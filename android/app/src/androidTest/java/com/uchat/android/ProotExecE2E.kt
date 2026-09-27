@@ -66,7 +66,8 @@ class ProotExecE2E {
         val libDir = context.applicationInfo.nativeLibraryDir
         process.environment()["LD_LIBRARY_PATH"] = libDir
         process.environment()["PROOT_TMP_DIR"] = context.cacheDir.absolutePath
-        process.environment()["PROOT_NO_SECCOMP"] = "1"
+        // PROOT_NO_SECCOMP must stay unset — with it, rename() returns ENOSYS on
+        // x86_64 emulators/modern Android (termux/proot#390) and dpkg cannot commit.
         process.environment()["PROOT_LOADER"] = "$libDir/libprootloader.so"
     }
 

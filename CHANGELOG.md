@@ -6,6 +6,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 ## [1.7.0] - 2026-09-27
 
 ### Fixed
+- **apt/dpkg can now actually finish on emulators and modern Android**: the proot
+  environment no longer sets `PROOT_NO_SECCOMP=1` (a v1.0.0 leftover). With it set,
+  proot's syscall-rewrite path never ran and every dpkg status commit died with
+  "error installing new file '/var/lib/dpkg/status': Function not implemented" —
+  the real cause behind the v1.6.0 "apt install failed / dpkg was interrupted" reports
+  (confirmed upstream in termux/proot#390)
 - **apt no longer stays broken after an interrupted install** ("E: dpkg was interrupted,
   you must manually run 'dpkg --configure -a'" / "Sub-process /usr/bin/dpkg returned an
   error code (2)"): a new `dpkg-recover.sh` step heals the package database before every
