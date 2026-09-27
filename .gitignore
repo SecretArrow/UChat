@@ -16,8 +16,9 @@ captures/
 *.keystore
 keystore.properties
 
-# Native build output
+# Native build output (bundled prebuilt proot in jniLibs is the exception — see below)
 *.so
+!android/app/src/main/jniLibs/**/*.so
 
 # Environment / secrets
 .env

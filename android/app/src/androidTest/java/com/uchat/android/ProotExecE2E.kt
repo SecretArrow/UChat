@@ -35,8 +35,10 @@ class ProotExecE2E {
         val libDir = context.applicationInfo.nativeLibraryDir
         assertNotNull("nativeLibraryDir must exist", libDir)
         val proot = File(libDir, "libproot.so")
+        val contents = libDir?.let { File(it).list()?.joinToString(", ") }
         assertTrue(
-            "libproot.so must be bundled in the APK and extracted to $libDir",
+            "libproot.so must be bundled in the APK and extracted to $libDir " +
+                "(dir contents: [$contents])",
             proot.isFile,
         )
         assertTrue("libproot.so must have the exec bit", proot.canExecute())
