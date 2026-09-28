@@ -10,8 +10,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
   exited with code 255"** — the crash logs traced the "sering session exited" reports to
   Bun (the runtime inside both tools) crashing under proot on arm64:
   - every session is now exec'd through a `session-run.sh` wrapper that raises
-    `RLIMIT_STACK` to the kernel hard limit before exec — Android's default app stack is far
-    below what Bun's JavaScriptCore needs on arm64 (opencode#35384, identical signature:
+    `RLIMIT_STACK` to a finite 16–64 MB (2–8x Android's 8 MB app default) before exec —
+    finite on purpose: an "unlimited" limit flips the kernel to the legacy mmap layout that
+    proot cannot survive on some Android kernels (opencode#35384, identical signature:
     segfault panic + signal 5 seconds after start)
   - Bun's JIT tiers are disabled and the interpreter forced on via `BUN_JSC_useJIT=0`,
     `BUN_JSC_useFTLJIT=0`, `BUN_JSC_useDFGJIT=0`, `BUN_JSC_useBaselineJIT=0`,

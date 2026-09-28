@@ -11,6 +11,7 @@ import com.uchat.android.linux.ProcessManager
 import com.uchat.android.linux.Proot
 import com.uchat.android.linux.SessionState
 import com.uchat.android.linux.downloader.Downloader
+import com.uchat.android.linux.exec.Shell
 import com.uchat.android.terminal.TerminalReplayCache
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
@@ -161,75 +162,59 @@ class SessionLifecycleE2E {
     }
 
     /**
-     * Proves the Bun-crash fix end to end INSIDE the real guest: every pty session is exec'd
-     * through session-run.sh (ScriptInstaller -> bind mount), which raises RLIMIT_STACK before
-     * exec. The marker env var proves the wrapper ran; the printed stack limit proves it took
-     * effect. Without this, opencode/claude die with "Segmentation fault / signal 5" seconds after
-     * start (the "session exited with code 255" field reports).
+     * Proves the Bun-crash fix INSIDE the real guest: session-run.sh must execute around the
+     * session command, export its marker env var, and raise RLIMIT_STACK before exec.
+     *
+     * Runs through [Shell.exec] instead of a pty so a failure is SELF-DIAGNOSING: the assertion
+     * message carries the exit code, stdout and stderr (e.g. proot's "terminated with signal 31"
+     * would pinpoint a seccomp kill). The pty path around the same wrapper is covered by the two
+     * bash tests above, which flow real output through launchSession.
      */
     @Test
     fun sessionRunnerWrapsCommandsAndRaisesStackLimit() = runBlocking {
         val paths = UChatPaths(context)
         paths.ensureDirs()
-        val abi = ensureUbuntuInstalled(paths)
+        ensureUbuntuInstalled(paths)
 
-        val runner = java.io.File(paths.scriptsDir, "session-run.sh")
+        val runner = File(paths.scriptsDir, "session-run.sh")
         assertTrue("session-run.sh must be installed into the scripts dir", runner.isFile)
 
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-        val replay = TerminalReplayCache()
-        val trackedId = java.util.concurrent.atomic.AtomicLong(0)
-        val manager =
-            ProcessManager(
-                scope,
-                outputTap = { id, bytes, len ->
-                    if (len > 0 && id == trackedId.get()) replay.offer(id, bytes, len)
-                },
+        val shell = Shell(paths, DeviceAbi.current())
+        // Inner shell is /bin/bash deliberately: it is the interpreter the other session tests
+        // already proved works under proot on this device, so the probe isolates the WRAPPER.
+        // The marker proves the wrapper ran (it exports UCHAT_SESSION_RUNNER); the printed
+        // ulimit value proves the stack raise took effect before exec.
+        val probe =
+            shell.exec(
+                listOf(
+                    Proot.SESSION_RUNNER,
+                    "/bin/bash",
+                    "-c",
+                    "echo RUNNER=\$UCHAT_SESSION_RUNNER STACK=\$(ulimit -s)",
+                ),
+                timeoutSeconds = 120,
             )
-
-        val session =
-            Proot.launchSession(
-                paths = paths,
-                abi = abi,
-                label = "Terminal",
-                // Inner command is the probe: the marker proves the WRAPPER ran (it exports
-                // UCHAT_SESSION_RUNNER), the value proves the limit actually changed.
-                innerCommand =
-                    listOf(
-                        "/bin/sh",
-                        "-c",
-                        "echo RUNNER=\$UCHAT_SESSION_RUNNER STACK=\$(ulimit -s)",
-                    ),
-                workingDirInUbuntu = Proot.UBUNTU_HOME,
-                scope = scope,
-            )
-        trackedId.set(session.id)
-        manager.register(session)
-
-        val output = StringBuilder()
-        try {
-            withTimeout(30_000) {
-                while (!output.contains("RUNNER=")) {
-                    val snapshot = replay.snapshot(session.id)
-                    if (snapshot.isNotEmpty()) output.append(String(snapshot, Charsets.UTF_8))
-                    delay(100)
-                }
-            }
-        } finally {
-            session.stop()
-        }
-        // 1. The wrapper really wrapped the command (marker env var set by session-run.sh).
         assertTrue(
-            "session must run through session-run.sh (got: $output)",
-            output.contains("RUNNER=1"),
+            "session runner probe failed rc=${probe.exitCode} " +
+                "out=${probe.stdout.take(300)} err=${probe.stderr.take(300)}",
+            probe.success,
         )
-        // 2. The stack limit must be unlimited OR raised to the kernel hard limit — any value
-        //    is acceptable as long as the wrapper executed; Bun needs headroom above 8 MB.
-        val stackLine = output.lineSequence().firstOrNull { it.contains("STACK=") } ?: ""
-        val stack = stackLine.substringAfter("STACK=").trim()
         assertTrue(
-            "stack limit must be unlimited or a number, got: '$stack' ($output)",
-            stack == "unlimited" || stack.all { it.isDigit() } && stack.isNotEmpty(),
+            "wrapper marker missing — session-run.sh did not run around the command " +
+                "(out=${probe.stdout.take(300)})",
+            probe.stdout.contains("RUNNER=1"),
+        )
+        val stack =
+            probe.stdout
+                .lineSequence()
+                .firstOrNull { it.contains("STACK=") }
+                ?.substringAfter("STACK=")
+                ?.trim() ?: ""
+        val raised = (stack.toLongOrNull() ?: 0L) > 8192L
+        assertTrue(
+            "stack limit must exceed Android's 8MB default (got: '$stack', " +
+                "out=${probe.stdout.take(300)})",
+            stack == "unlimited" || raised,
         )
     }
 }
