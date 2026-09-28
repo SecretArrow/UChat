@@ -3,6 +3,35 @@
 All notable changes to UChat are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [SemVer](https://semver.org/).
 
+## [1.10.0] - 2026-09-28
+
+### Fixed
+- **Every session died instantly with "proot error: '…/session-run.sh' not found" →
+  "[Terminal exited — code 1]"** (field report with screenshot, v1.9.0 regression): the
+  Bun-crash wrapper from v1.9.0 was exec'd through its HOST path
+  (`/data/user/0/…/files/scripts/session-run.sh`), but proot resolves the initial exec path
+  INSIDE the guest root where no `/data` exists — so the v1.9.0 release killed every
+  session at launch instead of protecting it. The wrapper is now addressed by its guest
+  bind path (`/root/.uchat-scripts/session-run.sh`); the host path stays a host-side
+  existence probe only. The emulator E2E missed this because it never deployed the
+  scripts before launching sessions, silently skipping the wrap — `SessionLifecycleE2E`
+  now installs the scripts like production, so every pty test exercises the real launch
+  path, and JVM tests pin that the host path can never leak into the guest argv again.
+- **Terminal text floating in the middle of the screen / "tidak bisa full layar penuh"**
+  (same field report): fixed-size grids were rendered CENTERED and never scaled UP, so
+  the chosen columns×rows grid became a small block floating mid-screen with huge empty
+  margins on a portrait phone. Fixed grids now scale uniformly in BOTH directions (text
+  and box-drawing are rasterized under the full canvas transform, so upscaling stays
+  crisp) and anchor to the TOP-LEFT: width-bound grids fill 100% of the width, height-bound
+  grids fill 100% of the height, and the grid can never float in the middle again. Scale
+  is clamped to 0.05x–8x so extreme sizes stay renderable/usable.
+
+### Added
+- Crash-loop guidance: when the auto-restart budget is exhausted (3 relaunches all
+  crashed again), the terminal now shows a bilingual note with the steps that actually
+  help (close + reopen the tab, restart the app, reboot the phone) instead of a bare
+  "[session exited]" line.
+
 ## [1.9.0] - 2026-09-28
 
 ### Fixed

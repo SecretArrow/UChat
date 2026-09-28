@@ -12,6 +12,7 @@ import com.uchat.android.linux.Proot
 import com.uchat.android.linux.SessionState
 import com.uchat.android.linux.downloader.Downloader
 import com.uchat.android.linux.exec.Shell
+import com.uchat.android.linux.install.ScriptInstaller
 import com.uchat.android.terminal.TerminalReplayCache
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
@@ -74,6 +75,18 @@ class SessionLifecycleE2E {
         // Production semantics: the step-10 ready marker is mandatory for isUbuntuInstalled.
         paths.markInstalled()
         assertTrue("isUbuntuInstalled must be true", paths.isUbuntuInstalled)
+
+        // Production semantics: ScriptInstaller deploys session-run.sh on every app start, so
+        // EVERY launchSession call below wraps its command with the runner. Deploying it here
+        // makes these pty tests regression-test the real launch path — the v1.9.0 field bug
+        // ("proot error: '.../session-run.sh' not found", every session dead with code 1) was
+        // invisible to CI exactly because this class skipped the installer and the wrap was
+        // silently skipped too.
+        ScriptInstaller.install(context, paths)
+        assertTrue(
+            "session-run.sh must be installed so launchSession wraps like production",
+            File(paths.scriptsDir, "session-run.sh").isFile,
+        )
         return abi
     }
 

@@ -27,21 +27,28 @@ object Proot {
     const val SESSION_RUNNER = "$UBUNTU_SCRIPTS/session-run.sh"
 
     /**
-     * Wraps [innerCommand] in the session runner script when it exists on disk.
+     * Wraps [innerCommand] in the session runner script when it is installed.
      *
      * The runner raises RLIMIT_STACK inside the guest before exec — Bun standalone binaries
      * (opencode, Claude Code) deep-recurse JSC on the main thread and die with "Segmentation fault
      * / signal 5" seconds after start when stuck with Android's small app stack (opencode#35384,
      * the "sering session exited" crash report with exit code 255).
      *
+     * REGRESSION (v1.9.0): the wrapper was exec'd via its HOST path
+     * (`/data/user/0/.../files/scripts/session-run.sh`). proot resolves the initial exec path
+     * INSIDE the guest root, where no /data exists, so every session died instantly with proot
+     * error: '...' not found (root = ..., $PATH=(null)) → [Terminal exited — code 1] The wrapper
+     * MUST be addressed by its GUEST bind path ([SESSION_RUNNER]); [runnerFile] stays a host-side
+     * existence probe only (scriptsDir is bind-mounted at UBUNTU_SCRIPTS by [argv]).
+     *
      * Pure so the JVM unit tests can pin the argv shape: the restore-after-reboot path persists
      * `command.joinToString(" ")` and splits it back later, so no argv element may contain a space
-     * — the runner path (bind mount) and tool names never do.
+     * — the guest runner path and tool names never do.
      */
     fun wrapWithSessionRunner(innerCommand: List<String>, runnerFile: File?): List<String> {
         if (innerCommand.isEmpty()) return innerCommand
         if (runnerFile == null || !runnerFile.isFile) return innerCommand
-        return listOf(runnerFile.absolutePath) + innerCommand
+        return listOf(SESSION_RUNNER) + innerCommand
     }
 
     fun binaryFor(paths: UChatPaths, abi: DeviceAbi): File = paths.effectiveProotBinary

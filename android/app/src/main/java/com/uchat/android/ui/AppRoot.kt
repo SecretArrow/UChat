@@ -997,6 +997,17 @@ private fun launchCommand(
             // Deliberate end of the session chain: the next incident deserves a fresh budget.
             // (Crash-loop exits never reach this branch, so MAX_ATTEMPTS keeps holding.)
             registry.forget(restartKey)
+        } else if (
+            code > 0 &&
+                code != 137 &&
+                code != 143 &&
+                registry.attemptsFor(restartKey) >= SessionRestartPolicy.MAX_ATTEMPTS
+        ) {
+            // Crash-loop exhausted: auto-restart gave up. Leave the user a way out instead of a
+            // bare "[session exited]" line (the "kok sering session exited" field report).
+            val note = SessionExitBanner.formatGaveUpNote(label)
+            container.replayCache.offer(session.id, note, note.size)
+            registry.forget(restartKey)
         }
     }
     if (restore) {

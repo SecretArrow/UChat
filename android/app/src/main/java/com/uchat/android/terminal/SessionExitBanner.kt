@@ -39,4 +39,18 @@ object SessionExitBanner {
                 "restart otomatis ${delayMillis / 1000}s]\u001b[0m\r\n"
         return text.toByteArray(Charsets.UTF_8)
     }
+
+    /**
+     * Cyan ANSI note written AFTER [format] when the restart budget is exhausted (all
+     * [com.uchat.android.linux.SessionRestartPolicy.MAX_ATTEMPTS] relaunches crashed again). Tells
+     * the user what actually helps instead of leaving a dead tab and a mystery — the field report
+     * was "[session exited with code 255]" with zero guidance.
+     */
+    fun formatGaveUpNote(label: String): ByteArray {
+        val text =
+            "\r\n\u001b[36m[?] $label keeps crashing / terus crash. Coba: tutup tab ini lalu " +
+                "buka lagi · restart app · restart ponsel. Tips: close this tab and reopen · " +
+                "restart the app · reboot the phone]\u001b[0m\r\n"
+        return text.toByteArray(Charsets.UTF_8)
+    }
 }
