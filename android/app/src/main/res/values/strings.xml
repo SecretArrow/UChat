@@ -211,8 +211,8 @@
     <string name="settings_terminal">Terminal</string>
     <string name="settings_font_size">Font size (12–24)</string>
     <string name="settings_background">Background</string>
-    <string name="settings_restore_after_reboot">Restore background sessions after reboot</string>
-    <string name="settings_persistent_notification">Persistent notification</string>
+    <string name="settings_restore_after_reboot">Restore sessions after app restart or reboot</string>
+    <string name="settings_persistent_notification">Detailed session notification</string>
     <string name="settings_storage">Storage</string>
     <string name="settings_warn_threshold">Warn when free space below (GB)</string>
     <string name="settings_security">Security</string>
@@ -328,6 +328,10 @@
     <string name="tset_fit_screen_desc">When on, the terminal always matches the available screen space.</string>
     <string name="tset_width_cols">Terminal width (columns)</string>
     <string name="tset_height_rows">Terminal height (rows)</string>
+    <string name="terminal_size_zoom">Size &amp; zoom</string>
+    <string name="tset_preset_auto">Auto</string>
+    <string name="tset_presets_hint">Tap a preset for a fixed columns\u00d7rows grid (scaled to stay visible), or Auto to always fit the screen.</string>
+    <string name="tset_font_value">%1$d sp</string>
     <string name="tset_fixed_desc">Fixed grid — scaled down automatically when the screen is smaller, so the full grid stays visible.</string>
     <string name="back_exit_hint">Press back again to exit</string>
 

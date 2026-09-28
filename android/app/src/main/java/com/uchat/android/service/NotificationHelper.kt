@@ -55,8 +55,23 @@ object NotificationHelper {
         channels.forEach { manager.createNotificationChannel(it) }
     }
 
-    /** Persistent foreground notification with live process count + Stop All. */
-    fun buildForeground(context: Context, runningCount: Int, details: List<String>): Notification {
+    /**
+     * Persistent foreground notification.
+     *
+     * Deliberately has NO destructive actions: the old "Stop all" button caused accidental taps
+     * that killed every running session (reported as "kok sering session exited"). Tap opens the
+     * app; sessions are stopped from the in-app Processes screen with explicit confirmation-less
+     * but deliberate buttons.
+     *
+     * [detailed] = the "persistent notification" preference: on → live process list, off → a
+     * minimal one-liner (the foreground service itself always runs while sessions are alive).
+     */
+    fun buildForeground(
+        context: Context,
+        runningCount: Int,
+        details: List<String>,
+        detailed: Boolean = true,
+    ): Notification {
         val openIntent =
             PendingIntent.getActivity(
                 context,
@@ -64,30 +79,25 @@ object NotificationHelper {
                 Intent(context, MainActivity::class.java),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
-        val stopAll =
-            PendingIntent.getService(
-                context,
-                1,
-                Intent(context, UChatService::class.java).setAction(UChatService.ACTION_STOP_ALL),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-            )
 
-        val style =
-            NotificationCompat.InboxStyle().also { inbox ->
-                details.take(4).forEach { inbox.addLine(it) }
-            }
+        val builder =
+            NotificationCompat.Builder(context, CHANNEL_PROCESSES)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(context.getString(R.string.app_name))
+                .setContentText(
+                    context.getString(R.string.processes_service_notification, runningCount)
+                )
+                .setOngoing(true)
+                .setContentIntent(openIntent)
+                .setCategory(NotificationCompat.CATEGORY_SERVICE)
 
-        return NotificationCompat.Builder(context, CHANNEL_PROCESSES)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(context.getString(R.string.app_name))
-            .setContentText(
-                context.getString(R.string.processes_service_notification, runningCount)
-            )
-            .setStyle(style)
-            .setOngoing(true)
-            .setContentIntent(openIntent)
-            .addAction(0, context.getString(R.string.processes_stop_all), stopAll)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .build()
+        if (detailed) {
+            val style =
+                NotificationCompat.InboxStyle().also { inbox ->
+                    details.take(4).forEach { inbox.addLine(it) }
+                }
+            builder.setStyle(style)
+        }
+        return builder.build()
     }
 }

@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.uchat.android.ui.terminal
 
 import androidx.compose.animation.fadeIn
@@ -8,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,6 +27,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.StopCircle
@@ -61,6 +65,7 @@ import com.uchat.android.linux.PtySession
 import com.uchat.android.linux.SessionState
 import com.uchat.android.terminal.TerminalController
 import com.uchat.android.terminal.TerminalReplayCache
+import com.uchat.android.terminal.TerminalSizePresets
 import com.uchat.android.terminal.backend.PtyBackend
 import com.uchat.android.terminal.keys.ExtraKey
 import com.uchat.android.terminal.keys.ExtraKeysState
@@ -94,6 +99,9 @@ fun TerminalScreenView(
     onSelectLayout: (String) -> Unit,
     onOpenEditor: () -> Unit,
     onOpenSettings: () -> Unit,
+    onSelectFitScreen: (Boolean) -> Unit = {},
+    onSelectFixedSize: (Int, Int) -> Unit = { _, _ -> },
+    onFontSizeChange: (Int) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val clipboard = LocalClipboardManager.current
@@ -144,6 +152,7 @@ fun TerminalScreenView(
     var layoutMenuOpen by remember { mutableStateOf(false) }
     var overflowOpen by remember { mutableStateOf(false) }
     var showFind by remember { mutableStateOf(false) }
+    var sizeDialogOpen by remember { mutableStateOf(false) }
 
     val toolbar =
         @Composable {
@@ -250,6 +259,18 @@ fun TerminalScreenView(
                             onClick = {
                                 overflowOpen = false
                                 controller.clearTerminal()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    stringResource(R.string.terminal_size_zoom) +
+                                        " · ${controller.currentCols()}×${controller.currentRows()}"
+                                )
+                            },
+                            onClick = {
+                                overflowOpen = false
+                                sizeDialogOpen = true
                             },
                         )
                         DropdownMenuItem(
@@ -388,6 +409,108 @@ fun TerminalScreenView(
             },
         )
     }
+
+    if (sizeDialogOpen) {
+        SizeZoomDialog(
+            settings = settings,
+            currentCols = controller.currentCols(),
+            currentRows = controller.currentRows(),
+            onSelectFitScreen = onSelectFitScreen,
+            onSelectFixedSize = onSelectFixedSize,
+            onFontSizeChange = onFontSizeChange,
+            onDismiss = { sizeDialogOpen = false },
+        )
+    }
+}
+
+/**
+ * Quick "size & zoom" dialog reachable from the terminal overflow menu: size presets (Auto fit or a
+ * fixed columns×rows grid) plus font-size steppers. Everything applies live — resizing the pty
+ * immediately (SIGWINCH) so TUIs like opencode/claude reflow without leaving the terminal.
+ */
+@Composable
+private fun SizeZoomDialog(
+    settings: UChatSettings,
+    currentCols: Int,
+    currentRows: Int,
+    onSelectFitScreen: (Boolean) -> Unit,
+    onSelectFixedSize: (Int, Int) -> Unit,
+    onFontSizeChange: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(stringResource(R.string.terminal_size_zoom) + " · $currentCols×$currentRows")
+        },
+        text = {
+            Column {
+                Text(
+                    stringResource(R.string.tset_grid_title),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = TerminalPalette.ForegroundDim,
+                )
+                FlowRow(Modifier.padding(vertical = 8.dp)) {
+                    androidx.compose.material3.FilterChip(
+                        selected = settings.terminalFitScreen,
+                        onClick = { onSelectFitScreen(true) },
+                        label = { Text(stringResource(R.string.tset_preset_auto)) },
+                        modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                    )
+                    TerminalSizePresets.ALL.forEach { preset ->
+                        androidx.compose.material3.FilterChip(
+                            selected =
+                                TerminalSizePresets.matching(
+                                    settings.terminalFitScreen,
+                                    settings.terminalFixedCols,
+                                    settings.terminalFixedRows,
+                                ) == preset,
+                            onClick = {
+                                onSelectFitScreen(false)
+                                onSelectFixedSize(preset.cols, preset.rows)
+                            },
+                            label = { Text(preset.label) },
+                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                        )
+                    }
+                }
+                Text(
+                    stringResource(R.string.tset_font_size),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = TerminalPalette.ForegroundDim,
+                )
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(
+                        onClick = {
+                            onFontSizeChange((settings.terminalFontSize - 1).coerceIn(8, 32))
+                        },
+                        enabled = settings.terminalFontSize > 8,
+                    ) {
+                        Icon(Icons.Filled.Remove, contentDescription = null)
+                    }
+                    Text(
+                        stringResource(R.string.tset_font_value, settings.terminalFontSize),
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        color = TerminalPalette.Foreground,
+                    )
+                    IconButton(
+                        onClick = {
+                            onFontSizeChange((settings.terminalFontSize + 1).coerceIn(8, 32))
+                        },
+                        enabled = settings.terminalFontSize < 32,
+                    ) {
+                        Icon(Icons.Filled.Add, contentDescription = null)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
+        },
+    )
 }
 
 @Composable

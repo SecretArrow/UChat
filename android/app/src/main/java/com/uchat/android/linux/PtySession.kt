@@ -56,6 +56,27 @@ class PtySession(
 
     @Volatile private var onExit: ((Int) -> Unit)? = null
 
+    /**
+     * App-scoped exit listeners (multi-cast). Unlike the single-slot [onExit] — owned by the
+     * visible terminal screen — these are registered once at [ProcessManager.register] time and
+     * survive attach/detach cycles, so an exit is ALWAYS journaled even when no terminal screen is
+     * watching the session (fixes silent off-screen deaths).
+     */
+    private val exitListeners = java.util.concurrent.CopyOnWriteArrayList<(Int) -> Unit>()
+
+    fun addExitListener(listener: (Int) -> Unit) {
+        exitListeners.add(listener)
+    }
+
+    fun removeExitListener(listener: (Int) -> Unit) {
+        exitListeners.remove(listener)
+    }
+
+    private fun dispatchExit(code: Int) {
+        exitListeners.forEach { listener -> runCatching { listener(code) } }
+        onExit?.let { listener -> runCatching { listener(code) } }
+    }
+
     private var nativePid: Long = 0
     private var handle: Long = handle
     private var readerJob: Job? = null
@@ -84,7 +105,7 @@ class PtySession(
     fun start() {
         if (handle == 0L) {
             state = SessionState.FAILED
-            onExit?.invoke(-1)
+            dispatchExit(-1)
             return
         }
         state = SessionState.RUNNING
@@ -102,7 +123,7 @@ class PtySession(
                 exitedAtMillis = System.currentTimeMillis()
                 state = SessionState.EXITED
                 Logs.process("session #$id '$label' exited with $code")
-                onExit?.invoke(code)
+                dispatchExit(code)
             }
     }
 
@@ -167,6 +188,7 @@ class PtySession(
 class ProcessManager(
     private val scope: CoroutineScope,
     private val outputTap: ((sessionId: Long, bytes: ByteArray, length: Int) -> Unit)? = null,
+    private val exitTap: ((sessionId: Long, label: String, exitCode: Int) -> Unit)? = null,
 ) {
 
     private val sessions = ConcurrentHashMap<Long, PtySession>()
@@ -183,6 +205,13 @@ class ProcessManager(
         val tap = outputTap
         if (tap != null) {
             session.addOutputListener { bytes, len -> tap(session.id, bytes, len) }
+        }
+        // App-scoped exit journal: fires for EVERY exit regardless of which screen (if any) is
+        // attached. The visible terminal screen still installs its own single-slot listener via
+        // setCallbacks — the two mechanisms no longer fight over one slot.
+        val exitHook = exitTap
+        if (exitHook != null) {
+            session.addExitListener { code -> exitHook(session.id, session.label, code) }
         }
         session.setExitListener { /* UI attaches its own exit listener when visible */}
     }

@@ -1,8 +1,12 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class,
+)
 
 package com.uchat.android.ui.terminal
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,6 +36,7 @@ import com.uchat.android.R
 import com.uchat.android.core.settings.SettingsRepository
 import com.uchat.android.core.settings.ToolbarPosition
 import com.uchat.android.core.settings.UChatSettings
+import com.uchat.android.terminal.TerminalSizePresets
 import com.uchat.android.terminal.keys.ModifierMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -185,6 +190,38 @@ fun TerminalSettingsScreen(
 
             Spacer(Modifier.height(16.dp))
             SectionTitle(stringResource(R.string.tset_grid_title))
+            Text(
+                stringResource(R.string.tset_presets_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = TerminalPalette.ForegroundDim,
+            )
+            FlowRow(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                FilterChip(
+                    selected = settings.terminalFitScreen,
+                    onClick = { scope.launch { repository.setTerminalFitScreen(true) } },
+                    label = { Text(stringResource(R.string.tset_preset_auto)) },
+                    modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                )
+                TerminalSizePresets.ALL.forEach { preset ->
+                    FilterChip(
+                        selected =
+                            TerminalSizePresets.matching(
+                                settings.terminalFitScreen,
+                                settings.terminalFixedCols,
+                                settings.terminalFixedRows,
+                            ) == preset,
+                        onClick = {
+                            scope.launch {
+                                repository.setTerminalFitScreen(false)
+                                repository.setTerminalFixedCols(preset.cols)
+                                repository.setTerminalFixedRows(preset.rows)
+                            }
+                        },
+                        label = { Text(preset.label) },
+                        modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                    )
+                }
+            }
             SwitchSetting(
                 label = stringResource(R.string.tset_fit_screen),
                 checked = settings.terminalFitScreen,
@@ -199,16 +236,16 @@ fun TerminalSettingsScreen(
                 SliderSetting(
                     label = stringResource(R.string.tset_width_cols),
                     value = settings.terminalFixedCols.toFloat(),
-                    range = 20f..200f,
-                    steps = 35,
+                    range = 20f..300f,
+                    steps = 55,
                     display = { "${it.toInt()} cols" },
                     onChange = { scope.launch { repository.setTerminalFixedCols(it.toInt()) } },
                 )
                 SliderSetting(
                     label = stringResource(R.string.tset_height_rows),
                     value = settings.terminalFixedRows.toFloat(),
-                    range = 10f..100f,
-                    steps = 17,
+                    range = 10f..200f,
+                    steps = 94,
                     display = { "${it.toInt()} rows" },
                     onChange = { scope.launch { repository.setTerminalFixedRows(it.toInt()) } },
                 )

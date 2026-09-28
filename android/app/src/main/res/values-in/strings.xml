@@ -211,8 +211,8 @@
     <string name="settings_terminal">Terminal</string>
     <string name="settings_font_size">Ukuran font (12–24)</string>
     <string name="settings_background">Latar belakang</string>
-    <string name="settings_restore_after_reboot">Pulihkan sesi latar belakang setelah reboot</string>
-    <string name="settings_persistent_notification">Notifikasi persisten</string>
+    <string name="settings_restore_after_reboot">Pulihkan sesi setelah aplikasi dibuka ulang atau reboot</string>
+    <string name="settings_persistent_notification">Notifikasi sesi terperinci</string>
     <string name="settings_storage">Penyimpanan</string>
     <string name="settings_warn_threshold">Peringatkan jika ruang bebas di bawah (GB)</string>
     <string name="settings_security">Keamanan</string>
@@ -328,6 +328,10 @@
     <string name="tset_fit_screen_desc">Bila aktif, terminal selalu mengikuti ruang layar yang tersedia.</string>
     <string name="tset_width_cols">Lebar terminal (kolom)</string>
     <string name="tset_height_rows">Tinggi terminal (baris)</string>
+    <string name="terminal_size_zoom">Ukuran &amp; zoom</string>
+    <string name="tset_preset_auto">Otomatis</string>
+    <string name="tset_presets_hint">Ketuk preset untuk grid tetap kolom\u00d7baris (diskalakan agar tetap terlihat), atau Otomatis agar selalu mengikuti layar.</string>
+    <string name="tset_font_value">%1$d sp</string>
     <string name="tset_fixed_desc">Grid tetap — diperkecil otomatis bila layar lebih kecil, sehingga seluruh grid tetap terlihat.</string>
     <string name="back_exit_hint">Tekan kembali sekali lagi untuk keluar</string>
 

@@ -3,6 +3,37 @@
 All notable changes to UChat are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [SemVer](https://semver.org/).
 
+## [1.8.0] - 2026-09-28
+
+### Fixed
+- **Sessions no longer die silently in the background ("kok sering session exited")**:
+  - the foreground service now runs whenever any session is running — the notification
+    preference only switches between a detailed and a minimal notification, it no longer
+    disables the protection that keeps Android from reaping the whole app process
+  - on Android 14+ the service uses the `specialUse` foreground-service type: `dataSync`
+    carries a 6-hour-per-24h runtime quota on Android 15 after which the system stops the
+    service and every session dies; `onTimeout` is handled defensively
+  - the notification's remote "Stop all" button was removed — one accidental tap used to
+    kill every running session; sessions are stopped from the Processes screen instead
+  - a session that exits while no terminal screen is attached now leaves a bilingual
+    "[session exited … / sesi berakhir …]" banner in its replay (exit 137 is explained as
+    an Android low-memory kill), so coming back shows WHAT happened instead of a silent
+    grey tab
+  - the terminal tab selection survives Activity recreation (`rememberSaveable`), so
+    rotating the screen no longer shows an empty "no sessions" state
+  - session restore is now ON by default and works after app-process death, not only reboots
+
+### Added
+- **Terminal size presets ("banyak opsi width & height")**: ten fixed grids from 80×24 up to
+  300×94 selectable as chips in Terminal settings and via a new in-terminal "Size & zoom"
+  dialog (overflow menu) that also carries font-size steppers 8–32 sp and shows the live
+  columns×rows — fixed grids are scaled to stay fully visible, ideal for opencode/claude TUIs
+- **Re-attach instead of duplicate sessions**: the Home OpenCode/Claude buttons show a live
+  green dot when that tool is running and tapping goes back INTO the running session instead
+  of stacking a second identical one
+- Width slider now spans the full supported range (20–300 columns, 10–200 rows), matching
+  the renderer clamps instead of silently disagreeing with them
+
 ## [1.7.0] - 2026-09-27
 
 ### Fixed

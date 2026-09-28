@@ -31,7 +31,10 @@ enum class AppThemeMode {
 /** User-controlled behaviour of UChat (spec #47) + terminal UI customization. */
 data class UChatSettings(
     val terminalFontSize: Int = 14,
-    val restoreSessionsAfterReboot: Boolean = false,
+    // Default ON: restore turns process-death (Android kills the app in background) from "all my
+    // sessions are gone" into a one-launch recovery. Rows persist per session and are removed as
+    // soon as a session exits normally.
+    val restoreSessionsAfterReboot: Boolean = true,
     val persistentNotification: Boolean = true,
     val storageWarnThresholdGb: Int = 10,
     val showHiddenFiles: Boolean = false,
@@ -84,7 +87,7 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.data.map { p ->
             UChatSettings(
                 terminalFontSize = p[Keys.FONT_SIZE] ?: 14,
-                restoreSessionsAfterReboot = p[Keys.RESTORE_REBOOT] ?: false,
+                restoreSessionsAfterReboot = p[Keys.RESTORE_REBOOT] ?: true,
                 persistentNotification = p[Keys.PERSISTENT_NOTIFICATION] ?: true,
                 storageWarnThresholdGb = p[Keys.STORAGE_THRESHOLD] ?: 10,
                 showHiddenFiles = p[Keys.HIDDEN_FILES] ?: false,
@@ -184,11 +187,13 @@ class SettingsRepository(private val context: Context) {
     }
 
     suspend fun setTerminalFixedCols(cols: Int) {
-        context.dataStore.edit { it[Keys.FIXED_COLS] = cols.coerceIn(20, 200) }
+        // Matches TerminalController.MAX_COLS (300) so the slider can express the full range the
+        // renderer supports — the old 200 cap silently disagreed with the clamp above it.
+        context.dataStore.edit { it[Keys.FIXED_COLS] = cols.coerceIn(20, 300) }
     }
 
     suspend fun setTerminalFixedRows(rows: Int) {
-        context.dataStore.edit { it[Keys.FIXED_ROWS] = rows.coerceIn(10, 100) }
+        context.dataStore.edit { it[Keys.FIXED_ROWS] = rows.coerceIn(10, 200) }
     }
 
     suspend fun setAppThemeMode(mode: AppThemeMode) {

@@ -12,6 +12,7 @@ import com.uchat.android.data.repo.SecretsRepository
 import com.uchat.android.linux.ProcessManager
 import com.uchat.android.linux.exec.Shell
 import com.uchat.android.linux.install.UbuntuInstaller
+import com.uchat.android.terminal.SessionExitBanner
 import com.uchat.android.terminal.TerminalReplayCache
 import com.uchat.android.terminal.keys.ExtraKeysStore
 import java.io.File
@@ -49,7 +50,14 @@ class AppContainer(context: Context) {
     val processManager =
         ProcessManager(
             appScope,
-            outputTap = { sessionId, bytes, length -> replayCache.offer(sessionId, bytes, length) }
+            outputTap = { sessionId, bytes, length -> replayCache.offer(sessionId, bytes, length) },
+            // Off-screen exit journal: a session that dies while no terminal screen is attached
+            // still leaves a "[session exited …]" banner in its replay, so the user always sees
+            // WHAT happened instead of a silent grey tab.
+            exitTap = { sessionId, label, exitCode ->
+                val banner = SessionExitBanner.format(label, exitCode)
+                replayCache.offer(sessionId, banner, banner.size)
+            },
         )
     val installer: UbuntuInstaller =
         UbuntuInstaller(

@@ -17,12 +17,16 @@ import kotlinx.coroutines.launch
 
 /**
  * Foreground service keeping eligible sessions alive while the user is away (spec #9, #24, #26).
- * Uses only Android-approved mechanisms: a dataSync foreground service with a persistent
- * notification — never hidden processes.
  *
- * The service now cleans up after itself: when the last session stops (or the user turns the
- * persistent notification off) it removes its own notification and stops — it no longer lingers
- * forever announcing "0 background process(es)".
+ * Reliability rules (learned from "kok sering session exited" reports):
+ * - The service runs whenever any session is RUNNING — the "persistent notification" preference
+ *   only chooses between a detailed and a minimal notification, it can no longer disable the
+ *   protection itself (a backgrounded app without an FGS is killed by Android within minutes).
+ * - On Android 14+ we use the `specialUse` FGS type: `dataSync` carries a 6-hour-per-24h runtime
+ *   quota on Android 15 after which the system silently stops the service and every session dies.
+ *   [onTimeout] is still handled defensively.
+ * - There is intentionally NO remote "Stop all" action on the notification: one accidental tap used
+ *   to kill every running session. Sessions are stopped from the in-app Processes screen.
  */
 class UChatService : LifecycleService() {
 
@@ -30,21 +34,7 @@ class UChatService : LifecycleService() {
         super.onCreate()
         val app = application as UChatApp
 
-        val notification =
-            NotificationHelper.buildForeground(
-                this,
-                0,
-                listOf(getString(R.string.service_starting)),
-            )
-        if (Build.VERSION.SDK_INT >= 29) {
-            startForeground(
-                NotificationHelper.NOTIFICATION_ID_PROCESSES,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-            )
-        } else {
-            startForeground(NotificationHelper.NOTIFICATION_ID_PROCESSES, notification)
-        }
+        startForegroundCompat(NotificationHelper.buildForeground(this, 0, emptyList()))
 
         lifecycleScope.launch {
             while (true) {
@@ -52,9 +42,8 @@ class UChatService : LifecycleService() {
                 val settings = container.settingsRepository.settings.first()
                 val sessions = container.processManager.all
                 val running = sessions.filter { it.state == SessionState.RUNNING }
-                val persist = settings.persistentNotification
-                if (running.isEmpty() || !persist) {
-                    Logs.app("UChatService stopping (running=${running.size}, persist=$persist)")
+                if (running.isEmpty()) {
+                    Logs.app("UChatService stopping (running=${running.size})")
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                     break
@@ -62,7 +51,12 @@ class UChatService : LifecycleService() {
                 val details =
                     running.take(4).map { "${it.label} — ${getString(R.string.processes_running)}" }
                 val notification2 =
-                    NotificationHelper.buildForeground(this@UChatService, running.size, details)
+                    NotificationHelper.buildForeground(
+                        this@UChatService,
+                        running.size,
+                        details,
+                        detailed = settings.persistentNotification,
+                    )
                 val manager =
                     getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
                 manager.notify(NotificationHelper.NOTIFICATION_ID_PROCESSES, notification2)
@@ -72,18 +66,39 @@ class UChatService : LifecycleService() {
         Logs.app("UChatService started")
     }
 
+    private fun startForegroundCompat(notification: android.app.Notification) {
+        when {
+            Build.VERSION.SDK_INT >= 34 ->
+                startForeground(
+                    NotificationHelper.NOTIFICATION_ID_PROCESSES,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+                )
+            Build.VERSION.SDK_INT >= 29 ->
+                startForeground(
+                    NotificationHelper.NOTIFICATION_ID_PROCESSES,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+                )
+            else -> startForeground(NotificationHelper.NOTIFICATION_ID_PROCESSES, notification)
+        }
+    }
+
+    /**
+     * Android 15+ may impose a runtime quota on certain FGS types. With `specialUse` this should
+     * not trigger, but if the system ever times the service out we fail loudly in the log and step
+     * aside cleanly — the restore-on-next-launch machinery relaunches the sessions.
+     */
+    override fun onTimeout(timeoutId: Int) {
+        Logs.app("UChatService onTimeout($timeoutId) — system revoked foreground time")
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        when (intent?.action) {
-            ACTION_STOP_ALL -> {
-                (application as UChatApp).container.processManager.stopAll()
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
-            }
-            ACTION_START -> {
-                // no-op: presence keeps the service alive
-            }
-        }
+        // Note: ACTION_STOP_ALL was removed on purpose — a notification button that killed every
+        // running session caused "all my sessions exited" reports. Nothing remote stops sessions.
         return START_STICKY
     }
 
@@ -94,7 +109,6 @@ class UChatService : LifecycleService() {
 
     companion object {
         const val ACTION_START = "com.uchat.android.action.START"
-        const val ACTION_STOP_ALL = "com.uchat.android.action.STOP_ALL"
 
         fun start(context: Context) {
             val intent = Intent(context, UChatService::class.java).setAction(ACTION_START)

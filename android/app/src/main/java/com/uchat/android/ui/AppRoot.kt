@@ -132,7 +132,9 @@ fun AppRoot(container: AppContainer) {
             settings.terminalKeepScreenOn && tab == Tab.TERMINAL && overlay == Overlay.NONE
     }
     val sessionsState by sessionsFlow.collectAsState()
-    var activeSessionId by remember { mutableStateOf<Long?>(null) }
+    // Saveable: after Activity recreation the previously-open terminal tab is restored instead of
+    // a blank "no sessions" screen (sessions themselves are app-scoped and never died).
+    var activeSessionId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     // Files state
     var filesDir by remember { mutableStateOf(Proot.UBUNTU_WORKSPACE) }
@@ -234,17 +236,42 @@ fun AppRoot(container: AppContainer) {
 
     val activeSession = sessionsState.firstOrNull { it.id == activeSessionId }
 
-    // Foreground service while something is running (spec #9) — and ONLY then. The service also
-    // stops itself now, so the notification no longer lingers announcing "0 background processes".
-    val runningCount = sessionsState.count { it.state == SessionState.RUNNING }
-    LaunchedEffect(
-        runningCount,
-        settings.persistentNotification,
-        container.paths.isUbuntuInstalled,
+    // Re-attach-or-launch: tapping an OpenCode/Claude quick action goes back INTO the running
+    // session with that label instead of silently spawning a duplicate (phone-friendly — the
+    // old behaviour stacked identical tabs and confused "my session is gone" reports).
+    fun reattachOrLaunch(
+        label: String,
+        command: List<String>,
+        workingDirInUbuntu: String = Proot.UBUNTU_HOME
     ) {
-        if (
-            container.paths.isUbuntuInstalled && runningCount > 0 && settings.persistentNotification
-        ) {
+        val existing =
+            sessionsState.firstOrNull { it.label == label && it.state == SessionState.RUNNING }
+        if (existing != null) {
+            activeSessionId = existing.id
+            tab = Tab.TERMINAL
+        } else {
+            launchCommand(
+                container,
+                label,
+                command,
+                workingDirInUbuntu,
+                restore = settings.restoreSessionsAfterReboot,
+            ) { id ->
+                activeSessionId = id
+                tab = Tab.TERMINAL
+            }
+        }
+    }
+
+    // Foreground service while something is running (spec #9) — and ONLY then. The service also
+    // stops itself, so the notification no longer lingers announcing "0 background processes".
+    // NOTE: the FGS intentionally does NOT depend on settings.persistentNotification — that
+    // preference only switches the notification between detailed and minimal. Killing the FGS
+    // when the notification is off let Android reap the whole process in background, which was
+    // the #1 source of "kok sering session exited" (sessions die with the app process).
+    val runningCount = sessionsState.count { it.state == SessionState.RUNNING }
+    LaunchedEffect(runningCount, container.paths.isUbuntuInstalled) {
+        if (container.paths.isUbuntuInstalled && runningCount > 0) {
             if (
                 Build.VERSION.SDK_INT >= 33 &&
                     androidx.core.content.ContextCompat.checkSelfPermission(
@@ -344,27 +371,17 @@ fun AppRoot(container: AppContainer) {
                                 networkConnected = networkConnected,
                                 onOpenTerminal = { tab = Tab.TERMINAL },
                                 onLaunchOpenCode = {
-                                    launchCommand(
-                                        container,
-                                        "OpenCode",
-                                        listOf("opencode"),
-                                        restore = settings.restoreSessionsAfterReboot,
-                                    ) { id ->
-                                        activeSessionId = id
-                                        tab = Tab.TERMINAL
-                                    }
+                                    reattachOrLaunch("OpenCode", listOf("opencode"))
                                 },
-                                onLaunchClaude = {
-                                    launchCommand(
-                                        container,
-                                        "Claude",
-                                        listOf("claude"),
-                                        restore = settings.restoreSessionsAfterReboot,
-                                    ) { id ->
-                                        activeSessionId = id
-                                        tab = Tab.TERMINAL
-                                    }
-                                },
+                                onLaunchClaude = { reattachOrLaunch("Claude", listOf("claude")) },
+                                opencodeRunning =
+                                    sessionsState.any {
+                                        it.label == "OpenCode" && it.state == SessionState.RUNNING
+                                    },
+                                claudeRunning =
+                                    sessionsState.any {
+                                        it.label == "Claude" && it.state == SessionState.RUNNING
+                                    },
                                 onOpenProjects = { tab = Tab.PROJECTS },
                                 onOpenFiles = { tab = Tab.FILES },
                                 modifier = commonModifier,
@@ -499,6 +516,22 @@ fun AppRoot(container: AppContainer) {
                             onSelectLayout = { id -> container.extraKeysStore.selectLayout(id) },
                             onOpenEditor = { overlay = Overlay.EXTRA_KEYS },
                             onOpenSettings = { overlay = Overlay.TERMINAL_SETTINGS },
+                            onSelectFitScreen = { value ->
+                                scope.launch {
+                                    container.settingsRepository.setTerminalFitScreen(value)
+                                }
+                            },
+                            onSelectFixedSize = { cols, rows ->
+                                scope.launch {
+                                    container.settingsRepository.setTerminalFixedCols(cols)
+                                    container.settingsRepository.setTerminalFixedRows(rows)
+                                }
+                            },
+                            onFontSizeChange = { size ->
+                                scope.launch {
+                                    container.settingsRepository.setTerminalFontSize(size)
+                                }
+                            },
                             modifier = commonModifier,
                         )
                     Tab.FILES ->
