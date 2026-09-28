@@ -17,6 +17,7 @@ val SCRIPTS =
         "install-bun.sh",
         "install-python.sh",
         "healthcheck.sh",
+        "session-run.sh",
     )
 
 /**

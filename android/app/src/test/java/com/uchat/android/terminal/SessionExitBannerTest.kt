@@ -35,4 +35,25 @@ class SessionExitBannerTest {
         assertTrue(text.endsWith("\r\n"))
         assertTrue("[Terminal" in text)
     }
+
+    // ---- crash-watchdog restart note ----
+
+    @Test
+    fun restartNoteMentionsLabelAttemptAndSeconds() {
+        val text = String(SessionExitBanner.formatRestartNote("OpenCode", 1, 2_000), Charsets.UTF_8)
+        assertTrue("OpenCode" in text)
+        assertTrue("auto-restart 1" in text)
+        assertTrue("2s" in text)
+        assertTrue("restart otomatis" in text)
+    }
+
+    @Test
+    fun restartNoteIsYellowAndFramedLikeTheExitBanner() {
+        val text = String(SessionExitBanner.formatRestartNote("Claude", 2, 4_000), Charsets.UTF_8)
+        assertTrue(text.startsWith("\r\n"))
+        assertTrue(text.endsWith("\r\n"))
+        // Yellow foreground (actionable news) vs the dim grey exit banner.
+        assertTrue("\u001b[33m" in text)
+        assertTrue("\u001b[0m" in text)
+    }
 }

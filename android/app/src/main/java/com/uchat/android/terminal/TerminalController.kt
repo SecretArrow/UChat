@@ -218,7 +218,8 @@ class TerminalController(
     private fun writeExitMessage(code: Int) {
         synchronized(buffer.lock) {
             emulator.writeText(
-                "\r\n\u001b[90m[session exited with code $code — tap + for a new session]\u001b[0m\r\n"
+                "\r\n\u001b[90m[session exited with code $code — sesi berakhir · tap + for a " +
+                    "new session / ketuk + untuk sesi baru]\u001b[0m\r\n"
             )
         }
         renderTick = buffer.generation

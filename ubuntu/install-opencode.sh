@@ -43,4 +43,18 @@ echo "[uchat] verifying opencode"
 command -v opencode >/dev/null 2>&1 ||
   { echo "[uchat] opencode NOT found after install"; exit 1; }
 echo "[uchat] opencode: $(opencode --version 2>/dev/null | head -n 1 || echo present)"
+
+# Freeze the binary: opencode's self-updater has a history of replacing a working install
+# with a crashier newer build on Android (opencode#50668), and each surprise update silently
+# burns the user's metered mobile data. Updates happen explicitly via the Install button.
+CFG_DIR="$HOME/.config/opencode"
+CFG="$CFG_DIR/opencode.json"
+if [ ! -f "$CFG" ]; then
+  mkdir -p "$CFG_DIR" 2>/dev/null || true
+  printf '{"autoupdate": false}\n' > "$CFG" 2>/dev/null ||
+    echo "[uchat] note: could not write $CFG (self-update stays enabled)"
+elif ! grep -q '"autoupdate"' "$CFG" 2>/dev/null; then
+  echo "[uchat] note: set \"autoupdate\": false in $CFG to prevent surprise self-updates"
+fi
+
 exit 0

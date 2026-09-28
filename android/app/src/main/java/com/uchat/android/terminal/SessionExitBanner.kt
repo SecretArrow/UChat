@@ -27,4 +27,16 @@ object SessionExitBanner {
                 "untuk sesi baru]\u001b[0m\r\n"
         return text.toByteArray(Charsets.UTF_8)
     }
+
+    /**
+     * Yellow ANSI note written AFTER [format] when the crash watchdog has decided to relaunch the
+     * session (see [com.uchat.android.linux.SessionRestartPolicy]). Yellow — not the dim grey of
+     * the exit banner — because this one is actionable news, not an obituary.
+     */
+    fun formatRestartNote(label: String, attempt: Int, delayMillis: Long): ByteArray {
+        val text =
+            "\r\n\u001b[33m[↻ $label crashed — auto-restart $attempt in ${delayMillis / 1000}s / " +
+                "restart otomatis ${delayMillis / 1000}s]\u001b[0m\r\n"
+        return text.toByteArray(Charsets.UTF_8)
+    }
 }

@@ -3,6 +3,37 @@
 All notable changes to UChat are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [SemVer](https://semver.org/).
 
+## [1.9.0] - 2026-09-28
+
+### Fixed
+- **opencode/claude no longer die with "panic(main thread): Segmentation fault … session
+  exited with code 255"** — the crash logs traced the "sering session exited" reports to
+  Bun (the runtime inside both tools) crashing under proot on arm64:
+  - every session is now exec'd through a `session-run.sh` wrapper that raises
+    `RLIMIT_STACK` to the kernel hard limit before exec — Android's default app stack is far
+    below what Bun's JavaScriptCore needs on arm64 (opencode#35384, identical signature:
+    segfault panic + signal 5 seconds after start)
+  - Bun's JIT tiers are disabled and the interpreter forced on via `BUN_JSC_useJIT=0`,
+    `BUN_JSC_useFTLJIT=0`, `BUN_JSC_useDFGJIT=0`, `BUN_JSC_useBaselineJIT=0`,
+    `BUN_JSC_useLLInt=1`, `BUN_JSC_useWasmIPInt=0` (JSC/WASM corruption family:
+    opencode#34054/#33890, oven-sh/bun#32632) — slower per-JS-turn but crash-free; network
+    and TUI latency are unaffected
+  - `BUN_FEATURE_FLAG_DISABLE_EPOLL_PWAIT2=1` is pre-set for Bun 1.4+ binaries
+    (oven-sh/bun#32489: Android seccomp blocks epoll_pwait2 with no fallback in some builds)
+  - crash-report uploads and telemetry are off (`DO_NOT_TRACK`, `DISABLE_TELEMETRY`) — each
+    Bun panic previously streamed a report over the user's metered mobile plan
+  - opencode's self-updater is disabled at install time (`autoupdate: false`) so a surprise
+    update can no longer swap a working binary for a crashier one or eat data silently
+
+### Added
+- **Crash watchdog with auto-restart**: if a session still dies spontaneously (exit 255,
+  133, 139, …) it is relaunched automatically up to 3 times with backoff (2s/4s/8s) and a
+  yellow "↻ auto-restart / restart otomatis" note in the terminal; deliberate exits (quit,
+  close tab, Android low-memory kill 137, SIGTERM) are never restarted, and closing the dead
+  tab cancels a pending restart. If the dead session was on screen, the restarted one takes
+  its place automatically.
+- E2E proof that the wrapper runs inside the real guest and actually raises the stack limit.
+
 ## [1.8.0] - 2026-09-28
 
 ### Fixed

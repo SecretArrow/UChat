@@ -23,6 +23,27 @@ object Proot {
     const val UBUNTU_SCRIPTS = "/root/.uchat-scripts"
     const val UBUNTU_HOME = "/root"
 
+    /** In-guest path of the session wrapper (see [wrapWithSessionRunner]). */
+    const val SESSION_RUNNER = "$UBUNTU_SCRIPTS/session-run.sh"
+
+    /**
+     * Wraps [innerCommand] in the session runner script when it exists on disk.
+     *
+     * The runner raises RLIMIT_STACK inside the guest before exec — Bun standalone binaries
+     * (opencode, Claude Code) deep-recurse JSC on the main thread and die with "Segmentation fault
+     * / signal 5" seconds after start when stuck with Android's small app stack (opencode#35384,
+     * the "sering session exited" crash report with exit code 255).
+     *
+     * Pure so the JVM unit tests can pin the argv shape: the restore-after-reboot path persists
+     * `command.joinToString(" ")` and splits it back later, so no argv element may contain a space
+     * — the runner path (bind mount) and tool names never do.
+     */
+    fun wrapWithSessionRunner(innerCommand: List<String>, runnerFile: File?): List<String> {
+        if (innerCommand.isEmpty()) return innerCommand
+        if (runnerFile == null || !runnerFile.isFile) return innerCommand
+        return listOf(runnerFile.absolutePath) + innerCommand
+    }
+
     fun binaryFor(paths: UChatPaths, abi: DeviceAbi): File = paths.effectiveProotBinary
 
     /**
@@ -113,6 +134,30 @@ object Proot {
                 // proot itself creates temp files on the HOST before starting the guest; Android
                 // has no /tmp, so point it at the app cache dir whenever we know it.
                 "PROOT_TMP_DIR" to (paths?.cacheDir?.absolutePath ?: "/tmp"),
+                // ---- Bun/JSC stability under proot ("kok sering session exited", exit 255) ----
+                // opencode and Claude Code are `bun build --compile` binaries; Bun 1.3.x on
+                // arm64 dies with a segfault/SIGTRAP panic seconds after start (JSC corruption
+                // family: opencode#34054/#33890, oven-sh/bun#32632). Bun reads BUN_JSC_* from
+                // the real environment at startup — verified to work for compiled binaries too
+                // — and every other program in the guest simply ignores them. Running on the
+                // interpreter is slower but stable; a dead session is infinitely slower.
+                "BUN_JSC_useJIT" to "0",
+                "BUN_JSC_useFTLJIT" to "0",
+                "BUN_JSC_useDFGJIT" to "0",
+                "BUN_JSC_useBaselineJIT" to "0",
+                "BUN_JSC_useLLInt" to "1",
+                "BUN_JSC_useWasmIPInt" to "0",
+                // Bun ≥ 1.4 honours this flag to skip epoll_pwait2, which Android seccomp blocks
+                // with no ENOSYS fallback in some builds (oven-sh/bun#32489). No-op on 1.3.x,
+                // vital the moment opencode/claude ship Bun 1.4+.
+                "BUN_FEATURE_FLAG_DISABLE_EPOLL_PWAIT2" to "1",
+                // Stop bun.report crash-report uploads and tool telemetry — each crash previously
+                // streamed data over the user's metered mobile plan.
+                "DO_NOT_TRACK" to "1",
+                // Claude Code updater: never swap the binary mid-session (new builds have
+                // historically been the crashy ones on Android).
+                "DISABLE_AUTOUPDATER" to "1",
+                "DISABLE_TELEMETRY" to "1",
             )
         // The bundled proot (Termux/NDK build) needs its companion libs (libtalloc.so,
         // libandroid-shmem.so) and its LOADER binaries, which live next to it in
@@ -138,7 +183,14 @@ object Proot {
         extraEnv: Map<String, String> = emptyMap(),
         scope: kotlinx.coroutines.CoroutineScope,
     ): PtySession {
-        val argv = argv(paths, abi, innerCommand)
+        // Wrap in the session runner (stack-limit raise) when it is installed. ScriptInstaller
+        // copies it on every app start; the graceful fallback keeps direct-launch callers (E2E,
+        // first frame after an update) working even if the copy has not happened yet.
+        val wrapped = wrapWithSessionRunner(innerCommand, File(paths.scriptsDir, "session-run.sh"))
+        if (wrapped !== innerCommand) {
+            Logs.process("session '$label' wrapped by session-run.sh (RLIMIT_STACK raise)")
+        }
+        val argv = argv(paths, abi, wrapped)
         val handle =
             Pty.nativeOpenTerminal(
                 argv.toTypedArray(),
@@ -153,7 +205,7 @@ object Proot {
             PtySession(
                 id = PtySession.nextId(),
                 label = label,
-                command = innerCommand,
+                command = wrapped,
                 workingDirectory = workingDirInUbuntu,
                 handle = handle,
                 scope = scope,

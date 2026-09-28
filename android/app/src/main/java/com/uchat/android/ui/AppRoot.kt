@@ -53,8 +53,10 @@ import com.uchat.android.data.repo.SecretsRepository
 import com.uchat.android.di.AppContainer
 import com.uchat.android.linux.Proot
 import com.uchat.android.linux.PtySession
+import com.uchat.android.linux.SessionRestartPolicy
 import com.uchat.android.linux.SessionState
 import com.uchat.android.service.UChatService
+import com.uchat.android.terminal.SessionExitBanner
 import com.uchat.android.ui.files.FileEntry
 import com.uchat.android.ui.files.FilesScreen
 import com.uchat.android.ui.home.HomeScreen
@@ -256,6 +258,11 @@ fun AppRoot(container: AppContainer) {
                 command,
                 workingDirInUbuntu,
                 restore = settings.restoreSessionsAfterReboot,
+                isActive = { it == activeSessionId },
+                onRestarted = { id ->
+                    activeSessionId = id
+                    tab = Tab.TERMINAL
+                },
             ) { id ->
                 activeSessionId = id
                 tab = Tab.TERMINAL
@@ -435,6 +442,11 @@ fun AppRoot(container: AppContainer) {
                                     listOf("/bin/bash", "-l"),
                                     project.pathInUbuntu,
                                     restore = settings.restoreSessionsAfterReboot,
+                                    isActive = { it == activeSessionId },
+                                    onRestarted = { id ->
+                                        activeSessionId = id
+                                        tab = Tab.TERMINAL
+                                    },
                                 ) { id ->
                                     activeSessionId = id
                                     tab = Tab.TERMINAL
@@ -447,6 +459,11 @@ fun AppRoot(container: AppContainer) {
                                     listOf("opencode"),
                                     project.pathInUbuntu,
                                     restore = settings.restoreSessionsAfterReboot,
+                                    isActive = { it == activeSessionId },
+                                    onRestarted = { id ->
+                                        activeSessionId = id
+                                        tab = Tab.TERMINAL
+                                    },
                                 ) { id ->
                                     activeSessionId = id
                                     tab = Tab.TERMINAL
@@ -459,6 +476,11 @@ fun AppRoot(container: AppContainer) {
                                     listOf("claude"),
                                     project.pathInUbuntu,
                                     restore = settings.restoreSessionsAfterReboot,
+                                    isActive = { it == activeSessionId },
+                                    onRestarted = { id ->
+                                        activeSessionId = id
+                                        tab = Tab.TERMINAL
+                                    },
                                 ) { id ->
                                     activeSessionId = id
                                     tab = Tab.TERMINAL
@@ -483,6 +505,8 @@ fun AppRoot(container: AppContainer) {
                                     "Terminal",
                                     listOf("/bin/bash", "-l"),
                                     restore = settings.restoreSessionsAfterReboot,
+                                    isActive = { it == activeSessionId },
+                                    onRestarted = { id -> activeSessionId = id },
                                 ) { id ->
                                     activeSessionId = id
                                 }
@@ -558,6 +582,11 @@ fun AppRoot(container: AppContainer) {
                                     listOf("/bin/bash", "-l"),
                                     dir,
                                     restore = settings.restoreSessionsAfterReboot,
+                                    isActive = { it == activeSessionId },
+                                    onRestarted = { id ->
+                                        activeSessionId = id
+                                        tab = Tab.TERMINAL
+                                    },
                                 ) { id ->
                                     activeSessionId = id
                                     tab = Tab.TERMINAL
@@ -721,6 +750,12 @@ fun AppRoot(container: AppContainer) {
                             tool.name,
                             listOf(tool.executable),
                             restore = settings.restoreSessionsAfterReboot,
+                            isActive = { it == activeSessionId },
+                            onRestarted = { id ->
+                                activeSessionId = id
+                                overlay = Overlay.NONE
+                                tab = Tab.TERMINAL
+                            },
                         ) { id ->
                             activeSessionId = id
                             overlay = Overlay.NONE
@@ -894,6 +929,8 @@ private fun launchCommand(
     command: List<String>,
     workingDirInUbuntu: String = Proot.UBUNTU_HOME,
     restore: Boolean = false,
+    isActive: (Long) -> Boolean = { false },
+    onRestarted: (Long) -> Unit = {},
     onLaunched: (Long) -> Unit,
 ) {
     if (!container.paths.isUbuntuInstalled) return
@@ -908,6 +945,60 @@ private fun launchCommand(
             scope = container.appScope,
         )
     container.processManager.register(session)
+    // ---- Crash watchdog ("kok sering session exited", exit code 255) ----
+    // opencode/claude are Bun standalone binaries; a Bun panic (255), SIGTRAP (133) or segfault
+    // (139) kills the pty even with the session-runner stack raise + JIT hardening in place.
+    // Instead of leaving a dead tab, relaunch the same command a bounded number of times with
+    // backoff. Deliberate exits (0, 137 OOM-kill, 143 SIGTERM, user stops, failed-to-start)
+    // never restart — see SessionRestartPolicy.
+    val restartKey = "$label|${workingDirInUbuntu}|${command.joinToString(" ")}"
+    val registry = container.sessionRestartRegistry
+    session.addExitListener { code ->
+        if (
+            SessionRestartPolicy.shouldAutoRestart(
+                exitCode = code,
+                userInitiated = session.userInitiatedStop,
+                attemptsSoFar = registry.attemptsFor(restartKey),
+            )
+        ) {
+            val attempt =
+                registry.recordCrash(
+                    restartKey,
+                    System.currentTimeMillis() - session.startedAtMillis,
+                )
+            val delayMs = SessionRestartPolicy.delayForAttempt(attempt)
+            val note = SessionExitBanner.formatRestartNote(label, attempt, delayMs)
+            container.replayCache.offer(session.id, note, note.size)
+            Logs.process(
+                "watchdog: '$label' crashed (code $code) — relaunch #$attempt/" +
+                    "${SessionRestartPolicy.MAX_ATTEMPTS} in ${delayMs}ms"
+            )
+            container.appScope.launch {
+                delay(delayMs)
+                // The user may have closed the dead tab while we waited — respect that choice.
+                if (container.processManager.get(session.id) == null) {
+                    registry.forget(restartKey)
+                    return@launch
+                }
+                launchCommand(
+                    container,
+                    label,
+                    command,
+                    workingDirInUbuntu,
+                    restore = restore,
+                    isActive = isActive,
+                    onRestarted = onRestarted,
+                ) { newId ->
+                    // Follow the restart only if the user was actually watching the dead one.
+                    if (isActive(session.id)) onRestarted(newId)
+                }
+            }
+        } else if (session.userInitiatedStop || code == 0) {
+            // Deliberate end of the session chain: the next incident deserves a fresh budget.
+            // (Crash-loop exits never reach this branch, so MAX_ATTEMPTS keeps holding.)
+            registry.forget(restartKey)
+        }
+    }
     if (restore) {
         // Persist for restore-after-reboot / app-death recovery (removed again on exit/close).
         container.appScope.launch {

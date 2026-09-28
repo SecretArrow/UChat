@@ -44,6 +44,9 @@ class AppContainer(context: Context) {
     /** Layer 2: bounded per-session output replay, fed by ProcessManager. */
     val replayCache = TerminalReplayCache()
 
+    /** Crash watchdog counters (see [com.uchat.android.linux.SessionRestartPolicy]). */
+    val sessionRestartRegistry = com.uchat.android.linux.SessionRestartRegistry()
+
     /** Layer 5 storage: customizable extra-key layouts. */
     val extraKeysStore = ExtraKeysStore(File(appContext.filesDir, "terminal"))
 

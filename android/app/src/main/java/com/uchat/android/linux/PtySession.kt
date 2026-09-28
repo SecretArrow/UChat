@@ -41,6 +41,15 @@ class PtySession(
     var exitCode: Int? = null
         private set
 
+    /**
+     * True when a human/UI action asked this session to stop ([stop]/[kill]/[close]). The crash
+     * watchdog consults this so an exit the user caused is never "auto-restarted" against their
+     * will; only spontaneous deaths (Bun panic 255, SIGTRAP 133, segv 139, ...) qualify.
+     */
+    @Volatile
+    var userInitiatedStop: Boolean = false
+        private set
+
     /** Wall clock at which the session flipped to EXITED — drives the reaper grace window. */
     @Volatile
     var exitedAtMillis: Long = 0L
@@ -146,6 +155,7 @@ class PtySession(
     /** Graceful stop: SIGHUP → SIGTERM → SIGKILL escalation. */
     fun stop() {
         if (state == SessionState.RUNNING) {
+            userInitiatedStop = true
             signal(Pty.SIG_HUP)
             signal(Pty.SIG_TERM)
             scope.launch(Dispatchers.IO) {
@@ -156,7 +166,10 @@ class PtySession(
     }
 
     fun kill() {
-        if (state == SessionState.RUNNING) signal(Pty.SIG_KILL)
+        if (state == SessionState.RUNNING) {
+            userInitiatedStop = true
+            signal(Pty.SIG_KILL)
+        }
     }
 
     override fun close() {
